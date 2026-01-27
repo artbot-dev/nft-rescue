@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup outputs
+nft-rescue-backup/
+*-backup/
+
+# Arweave wallet (sensitive)
+*.arweave.json
+wallet.json
+
+# Logs
+*.log
+npm-debug.log*
