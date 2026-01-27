@@ -4,8 +4,8 @@ import { program } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import cliProgress from 'cli-progress';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, writeFile, access, constants } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
 
 import { resolveAddress, isEnsName, reverseResolve } from './ens.js';
 import { discoverNFTs } from './nft-discovery.js';
@@ -22,6 +22,39 @@ import type {
   BackupSummary,
 } from './types.js';
 import { RATE_LIMIT_DELAY } from './config.js';
+
+/**
+ * Validate that the Alchemy API key is configured
+ */
+function validateApiKey(): void {
+  if (!process.env.ALCHEMY_API_KEY) {
+    console.error(chalk.red('Error: ALCHEMY_API_KEY environment variable is required.'));
+    console.error(chalk.dim('Get a free API key at: https://dashboard.alchemy.com/signup'));
+    process.exit(1);
+  }
+}
+
+/**
+ * Sanitize a path segment to prevent directory traversal attacks
+ */
+function sanitizePathSegment(segment: string): string {
+  if (segment.includes('/') || segment.includes('\\') || segment.includes('..')) {
+    throw new Error(`Invalid path segment (potential directory traversal): ${segment}`);
+  }
+  return segment;
+}
+
+/**
+ * Validate that the output directory is writable
+ */
+async function validateOutputDir(outputDir: string): Promise<void> {
+  const parentDir = dirname(outputDir);
+  try {
+    await access(parentDir, constants.W_OK);
+  } catch {
+    throw new Error(`Cannot write to directory: ${parentDir}`);
+  }
+}
 
 /**
  * Sleep for a given number of milliseconds
@@ -49,6 +82,9 @@ function createProgressBar(format: string) {
  * Analyze command - show storage breakdown for all NFTs
  */
 async function analyze(input: string, options: AnalyzeOptions): Promise<void> {
+  // Validate API key before starting
+  validateApiKey();
+
   const spinner = ora('Starting analysis...').start();
 
   try {
@@ -184,7 +220,10 @@ async function backupNFT(
   storageReport?: NFTStorageReport;
   error?: string;
 }> {
-  const nftDir = join(outputDir, 'nfts', nft.contractAddress, nft.tokenId);
+  // Sanitize path segments to prevent directory traversal
+  const safeContract = sanitizePathSegment(nft.contractAddress);
+  const safeTokenId = sanitizePathSegment(nft.tokenId);
+  const nftDir = join(outputDir, 'nfts', safeContract, safeTokenId);
 
   try {
     await mkdir(nftDir, { recursive: true });
@@ -292,6 +331,17 @@ async function backupNFT(
  * Backup command - backup at-risk NFTs
  */
 async function backup(input: string, options: BackupOptions): Promise<void> {
+  // Validate API key before starting
+  validateApiKey();
+
+  // Validate output directory is writable
+  try {
+    await validateOutputDir(options.outputDir);
+  } catch (error) {
+    console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+    process.exit(1);
+  }
+
   const spinner = ora('Starting backup...').start();
 
   try {
@@ -473,10 +523,15 @@ program
   .argument('<wallet>', 'Wallet address or ENS name (e.g., artbot.eth)')
   .option('-v, --verbose', 'Show detailed output', false)
   .action(async (wallet: string, opts) => {
+    const trimmedWallet = wallet.trim();
+    if (!trimmedWallet) {
+      console.error(chalk.red('Error: Wallet address or ENS name is required.'));
+      process.exit(1);
+    }
     const options: AnalyzeOptions = {
       verbose: opts.verbose,
     };
-    await analyze(wallet, options);
+    await analyze(trimmedWallet, options);
   });
 
 // Backup command
@@ -489,13 +544,18 @@ program
   .option('-d, --dry-run', 'Show what would be backed up', false)
   .option('-v, --verbose', 'Detailed output', false)
   .action(async (wallet: string, opts) => {
+    const trimmedWallet = wallet.trim();
+    if (!trimmedWallet) {
+      console.error(chalk.red('Error: Wallet address or ENS name is required.'));
+      process.exit(1);
+    }
     const options: BackupOptions = {
       outputDir: opts.output,
       dryRun: opts.dryRun,
       verbose: opts.verbose,
       all: opts.all,
     };
-    await backup(wallet, options);
+    await backup(trimmedWallet, options);
   });
 
 // Default command (backwards compatibility)
@@ -506,7 +566,8 @@ program
   .option('-d, --dry-run', 'Show what would be backed up', false)
   .option('-v, --verbose', 'Detailed output', false)
   .action(async (wallet: string | undefined, opts) => {
-    if (!wallet) {
+    const trimmedWallet = wallet?.trim();
+    if (!trimmedWallet) {
       program.help();
       return;
     }
@@ -518,7 +579,7 @@ program
       verbose: opts.verbose,
       all: opts.all,
     };
-    await backup(wallet, options);
+    await backup(trimmedWallet, options);
   });
 
 program.parse();

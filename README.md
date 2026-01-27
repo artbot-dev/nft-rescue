@@ -1,5 +1,9 @@
 # NFT Rescue
 
+[![npm version](https://img.shields.io/npm/v/nft-rescue.svg)](https://www.npmjs.com/package/nft-rescue)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/node/v/nft-rescue.svg)](https://nodejs.org)
+
 A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. The tool analyzes all NFTs in a wallet, classifies their storage as "safe" (IPFS/Arweave) or "at-risk" (centralized CDNs, APIs), and downloads at-risk assets locally.
 
 ## Features
@@ -17,17 +21,27 @@ A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. Th
 - Node.js 18+
 - Alchemy API key (free tier works fine)
 
-## Setup
+## Installation
 
-1. Clone and install dependencies:
+### From npm (recommended)
 
 ```bash
+npm install -g nft-rescue
+```
+
+### From source
+
+```bash
+git clone https://github.com/artbot-dev/nft-rescue.git
 cd nft-rescue
 npm install
 npm run build
+npm link  # Makes 'nft-rescue' available globally
 ```
 
-2. Get an Alchemy API key:
+## Setup
+
+1. Get an Alchemy API key:
    - Go to https://dashboard.alchemy.com/signup
    - Create a free account
    - Create a new app (select "Ethereum" and "Mainnet")
@@ -153,10 +167,28 @@ nft-rescue-backup/
 ## Notes
 
 - Only at-risk assets are backed up by default; use `--all` to backup everything
-- The tool includes rate limiting to avoid API throttling
+- The tool includes rate limiting to avoid API throttling (100ms between requests)
 - IPFS content is accessed through multiple gateways with fallback
 - When original metadata servers are offline, the tool falls back to Alchemy's cached data
+- Currently supports Ethereum mainnet only
+
+## API Rate Limits
+
+The free Alchemy tier has generous rate limits for most use cases. If you're backing up a wallet with thousands of NFTs, consider:
+- Using `--dry-run` first to see the scope
+- Running during off-peak hours
+- Upgrading to a paid Alchemy plan for higher limits
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE) file for details.
