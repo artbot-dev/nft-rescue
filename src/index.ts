@@ -12,6 +12,7 @@ import { discoverNFTs } from './nft-discovery.js';
 import { fetchMetadata, extractMediaUrls } from './metadata.js';
 import { downloadAsset } from './downloader.js';
 import { analyzeNFTStorage, getStorageStatus } from './storage-classifier.js';
+import { getChainConfig, getSupportedChainNames, getDefaultChain } from './chains.js';
 import type {
   BackupManifest,
   BackupOptions,
@@ -85,30 +86,35 @@ async function analyze(input: string, options: AnalyzeOptions): Promise<void> {
   // Validate API key before starting
   validateApiKey();
 
-  const spinner = ora('Starting analysis...').start();
+  const chainConfig = getChainConfig(options.chain);
+  const spinner = ora(`Starting analysis on ${chalk.cyan(chainConfig.displayName)}...`).start();
 
   try {
     // Step 1: Resolve address
     spinner.text = 'Resolving wallet address...';
-    const walletAddress = await resolveAddress(input);
-    const ensName = isEnsName(input) ? input : await reverseResolve(walletAddress);
+    const { address: walletAddress, warning: resolveWarning } = await resolveAddress(input, options.chain);
+    const ensName = isEnsName(input) ? input : await reverseResolve(walletAddress, options.chain);
 
     spinner.succeed(
       `Resolved address: ${chalk.cyan(walletAddress)}${ensName ? ` (${chalk.green(ensName)})` : ''}`
     );
 
+    if (resolveWarning) {
+      console.log(chalk.yellow(`  ⚠ ${resolveWarning}`));
+    }
+
     // Step 2: Discover NFTs
-    spinner.start('Discovering NFTs...');
+    spinner.start(`Discovering NFTs on ${chainConfig.displayName}...`);
     const nfts = await discoverNFTs(walletAddress, (current, total) => {
-      spinner.text = `Discovering NFTs... ${current}${total ? `/${total}` : ''}`;
-    });
+      spinner.text = `Discovering NFTs on ${chainConfig.displayName}... ${current}${total ? `/${total}` : ''}`;
+    }, options.chain);
 
     if (nfts.length === 0) {
-      spinner.warn('No NFTs found in this wallet.');
+      spinner.warn(`No NFTs found in this wallet on ${chainConfig.displayName}.`);
       return;
     }
 
-    spinner.succeed(`Found ${chalk.cyan(nfts.length)} NFTs`);
+    spinner.succeed(`Found ${chalk.cyan(nfts.length)} NFTs on ${chainConfig.displayName}`);
 
     // Step 3: Analyze storage for each NFT
     console.log('\n' + chalk.bold('Analyzing storage...'));
@@ -161,7 +167,7 @@ async function analyze(input: string, options: AnalyzeOptions): Promise<void> {
     progressBar.stop();
 
     // Display results
-    console.log('\n' + chalk.bold('Storage Analysis Results:'));
+    console.log('\n' + chalk.bold(`Storage Analysis Results (${chainConfig.displayName}):`));
     console.log(chalk.dim('-'.repeat(50)));
     console.log(`  ${chalk.green('Safe (Decentralized):')} ${fullyDecentralized} NFTs`);
     console.log(`  ${chalk.yellow('Mixed (Some at-risk):')} ${mixed} NFTs`);
@@ -193,8 +199,9 @@ async function analyze(input: string, options: AnalyzeOptions): Promise<void> {
     }
 
     if (atRisk + mixed > 0) {
+      const chainFlag = options.chain !== 'ethereum' ? ` --chain ${options.chain}` : '';
       console.log(
-        `\n${chalk.yellow('Tip:')} Run ${chalk.cyan(`nft-rescue backup ${input}`)} to backup at-risk assets.`
+        `\n${chalk.yellow('Tip:')} Run ${chalk.cyan(`nft-rescue backup ${input}${chainFlag}`)} to backup at-risk assets.`
       );
     }
   } catch (error) {
@@ -342,30 +349,35 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
     process.exit(1);
   }
 
-  const spinner = ora('Starting backup...').start();
+  const chainConfig = getChainConfig(options.chain);
+  const spinner = ora(`Starting backup on ${chalk.cyan(chainConfig.displayName)}...`).start();
 
   try {
     // Step 1: Resolve address
     spinner.text = 'Resolving wallet address...';
-    const walletAddress = await resolveAddress(input);
-    const ensName = isEnsName(input) ? input : await reverseResolve(walletAddress);
+    const { address: walletAddress, warning: resolveWarning } = await resolveAddress(input, options.chain);
+    const ensName = isEnsName(input) ? input : await reverseResolve(walletAddress, options.chain);
 
     spinner.succeed(
       `Resolved address: ${chalk.cyan(walletAddress)}${ensName ? ` (${chalk.green(ensName)})` : ''}`
     );
 
+    if (resolveWarning) {
+      console.log(chalk.yellow(`  ⚠ ${resolveWarning}`));
+    }
+
     // Step 2: Discover NFTs
-    spinner.start('Discovering NFTs...');
+    spinner.start(`Discovering NFTs on ${chainConfig.displayName}...`);
     const nfts = await discoverNFTs(walletAddress, (current, total) => {
-      spinner.text = `Discovering NFTs... ${current}${total ? `/${total}` : ''}`;
-    });
+      spinner.text = `Discovering NFTs on ${chainConfig.displayName}... ${current}${total ? `/${total}` : ''}`;
+    }, options.chain);
 
     if (nfts.length === 0) {
-      spinner.warn('No NFTs found in this wallet.');
+      spinner.warn(`No NFTs found in this wallet on ${chainConfig.displayName}.`);
       return;
     }
 
-    spinner.succeed(`Found ${chalk.cyan(nfts.length)} NFTs`);
+    spinner.succeed(`Found ${chalk.cyan(nfts.length)} NFTs on ${chainConfig.displayName}`);
 
     // Step 3: Quick analysis to filter at-risk NFTs
     spinner.start('Analyzing storage...');
@@ -456,6 +468,8 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
     const manifest: BackupManifest = {
       walletAddress,
       ensName: ensName || undefined,
+      chainName: chainConfig.name,
+      chainId: chainConfig.chainId,
       backupDate: new Date().toISOString(),
       summary,
       nfts: [],
@@ -510,11 +524,26 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
   }
 }
 
+// Chain option description
+const chainOptionDesc = `Blockchain to query. Supported: ${getSupportedChainNames().join(', ')}`;
+
+/**
+ * Validate chain option and exit if invalid
+ */
+function validateChain(chainName: string): void {
+  try {
+    getChainConfig(chainName);
+  } catch (error) {
+    console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+    process.exit(1);
+  }
+}
+
 // CLI setup
 program
   .name('nft-rescue')
   .description('Backup NFT assets stored on centralized/at-risk infrastructure')
-  .version('1.0.0');
+  .version('1.1.0');
 
 // Analyze command
 program
@@ -522,14 +551,17 @@ program
   .description('Analyze wallet and show storage breakdown')
   .argument('<wallet>', 'Wallet address or ENS name (e.g., artbot.eth)')
   .option('-v, --verbose', 'Show detailed output', false)
+  .option('-c, --chain <chain>', chainOptionDesc, 'ethereum')
   .action(async (wallet: string, opts) => {
     const trimmedWallet = wallet.trim();
     if (!trimmedWallet) {
       console.error(chalk.red('Error: Wallet address or ENS name is required.'));
       process.exit(1);
     }
+    validateChain(opts.chain);
     const options: AnalyzeOptions = {
       verbose: opts.verbose,
+      chain: opts.chain,
     };
     await analyze(trimmedWallet, options);
   });
@@ -543,43 +575,27 @@ program
   .option('-a, --all', 'Backup all NFTs, not just at-risk', false)
   .option('-d, --dry-run', 'Show what would be backed up', false)
   .option('-v, --verbose', 'Detailed output', false)
+  .option('-c, --chain <chain>', chainOptionDesc, 'ethereum')
   .action(async (wallet: string, opts) => {
     const trimmedWallet = wallet.trim();
     if (!trimmedWallet) {
       console.error(chalk.red('Error: Wallet address or ENS name is required.'));
       process.exit(1);
     }
+    validateChain(opts.chain);
     const options: BackupOptions = {
       outputDir: opts.output,
       dryRun: opts.dryRun,
       verbose: opts.verbose,
       all: opts.all,
+      chain: opts.chain,
     };
     await backup(trimmedWallet, options);
   });
 
-// Default command (backwards compatibility)
-program
-  .argument('[wallet]', 'Wallet address or ENS name')
-  .option('-o, --output <dir>', 'Output directory', './nft-rescue-backup')
-  .option('-a, --all', 'Backup all NFTs, not just at-risk', false)
-  .option('-d, --dry-run', 'Show what would be backed up', false)
-  .option('-v, --verbose', 'Detailed output', false)
-  .action(async (wallet: string | undefined, opts) => {
-    const trimmedWallet = wallet?.trim();
-    if (!trimmedWallet) {
-      program.help();
-      return;
-    }
-
-    // If just a wallet is provided without a command, run backup
-    const options: BackupOptions = {
-      outputDir: opts.output,
-      dryRun: opts.dryRun,
-      verbose: opts.verbose,
-      all: opts.all,
-    };
-    await backup(trimmedWallet, options);
-  });
+// Show help by default if no command is given
+program.action(() => {
+  program.help();
+});
 
 program.parse();

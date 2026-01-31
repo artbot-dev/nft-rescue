@@ -1,13 +1,17 @@
-import { Alchemy, Network, OwnedNft } from 'alchemy-sdk';
+import { Alchemy, OwnedNft } from 'alchemy-sdk';
 import type { DiscoveredNFT } from './types.js';
+import { getChainConfig, getDefaultChain, type ChainConfig } from './chains.js';
 
-let alchemyClient: Alchemy | null = null;
+// Cache Alchemy clients per chain
+const alchemyClients: Map<string, Alchemy> = new Map();
 
 /**
- * Initialize the Alchemy SDK client
+ * Get or create an Alchemy client for the specified chain
  */
-function getAlchemyClient(): Alchemy {
-  if (!alchemyClient) {
+function getAlchemyClient(chainConfig: ChainConfig): Alchemy {
+  const cacheKey = chainConfig.name;
+
+  if (!alchemyClients.has(cacheKey)) {
     const apiKey = process.env.ALCHEMY_API_KEY;
     if (!apiKey) {
       throw new Error(
@@ -16,18 +20,22 @@ function getAlchemyClient(): Alchemy {
       );
     }
 
-    alchemyClient = new Alchemy({
-      apiKey,
-      network: Network.ETH_MAINNET,
-    });
+    alchemyClients.set(
+      cacheKey,
+      new Alchemy({
+        apiKey,
+        network: chainConfig.alchemyNetwork,
+      })
+    );
   }
-  return alchemyClient;
+
+  return alchemyClients.get(cacheKey)!;
 }
 
 /**
  * Convert Alchemy NFT to our DiscoveredNFT format
  */
-function toDiscoveredNFT(nft: OwnedNft): DiscoveredNFT {
+function toDiscoveredNFT(nft: OwnedNft, chainConfig: ChainConfig): DiscoveredNFT {
   // Extract cached image URL - try multiple sources
   const cachedImageUrl =
     nft.image?.cachedUrl ||
@@ -58,19 +66,24 @@ function toDiscoveredNFT(nft: OwnedNft): DiscoveredNFT {
     cachedMetadata,
     cachedImageUrl,
     cachedAnimationUrl,
+    chainId: chainConfig.chainId,
+    chainName: chainConfig.name,
   };
 }
 
 /**
- * Discover all NFTs owned by a wallet address
- * @param walletAddress Ethereum address to check
+ * Discover all NFTs owned by a wallet address on a specific chain
+ * @param walletAddress Wallet address to check
  * @param onProgress Optional callback for progress updates (current count, total if known)
+ * @param chainName Optional chain name (defaults to 'ethereum')
  */
 export async function discoverNFTs(
   walletAddress: string,
-  onProgress?: (current: number, total?: number) => void
+  onProgress?: (current: number, total?: number) => void,
+  chainName?: string
 ): Promise<DiscoveredNFT[]> {
-  const alchemy = getAlchemyClient();
+  const chainConfig = chainName ? getChainConfig(chainName) : getDefaultChain();
+  const alchemy = getAlchemyClient(chainConfig);
   const allNFTs: DiscoveredNFT[] = [];
   let pageKey: string | undefined;
 
@@ -81,7 +94,7 @@ export async function discoverNFTs(
     });
 
     for (const nft of response.ownedNfts) {
-      allNFTs.push(toDiscoveredNFT(nft));
+      allNFTs.push(toDiscoveredNFT(nft, chainConfig));
     }
 
     pageKey = response.pageKey;
@@ -89,4 +102,11 @@ export async function discoverNFTs(
   } while (pageKey);
 
   return allNFTs;
+}
+
+/**
+ * Clear cached Alchemy clients (useful for testing)
+ */
+export function clearAlchemyClients(): void {
+  alchemyClients.clear();
 }

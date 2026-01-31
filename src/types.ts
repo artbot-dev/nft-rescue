@@ -23,6 +23,9 @@ export interface DiscoveredNFT {
   cachedMetadata?: NFTMetadata;
   cachedImageUrl?: string;
   cachedAnimationUrl?: string;
+  // Chain information
+  chainId?: number;
+  chainName?: string;
 }
 
 // Storage classification types
@@ -63,6 +66,8 @@ export interface BackupSummary {
 export interface BackupManifest {
   walletAddress: string;
   ensName?: string;
+  chainName: string;
+  chainId: number;
   backupDate: string;
   summary: BackupSummary;
   nfts: Array<{
@@ -83,8 +88,10 @@ export interface BackupOptions {
   dryRun: boolean;
   verbose: boolean;
   all: boolean; // Backup all NFTs, not just at-risk
+  chain: string; // Chain to query (e.g., 'ethereum', 'base', 'zora')
 }
 
 export interface AnalyzeOptions {
   verbose: boolean;
+  chain: string; // Chain to query (e.g., 'ethereum', 'base', 'zora')
 }
