@@ -1,0 +1,15 @@
+{
+  "contractAddress": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "tokenId": "100",
+  "tokenUri": "ipfs://QmMixedMetadataCID123456789012345678901234",
+  "name": "Mixed Storage NFT",
+  "description": "An NFT with mixed storage - metadata on IPFS, assets centralized",
+  "contractName": "Mixed Collection",
+  "cachedMetadata": {
+    "name": "Mixed Storage NFT",
+    "description": "An NFT with mixed storage",
+    "image": "https://storage.googleapis.com/nft-assets/100.png",
+    "animation_url": "ipfs://QmAnimationCID12345678901234567890123456"
+  },
+  "cachedImageUrl": "https://nft-cdn.alchemy.com/cached/100.png"
+}

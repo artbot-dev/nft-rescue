@@ -1,0 +1,17 @@
+{
+  "contractAddress": "0x1234567890123456789012345678901234567890",
+  "tokenId": "1",
+  "tokenUri": "ipfs://QmTestMetadataCID12345678901234567890123",
+  "name": "IPFS NFT",
+  "description": "An NFT with fully decentralized storage",
+  "contractName": "Decentralized Collection",
+  "cachedMetadata": {
+    "name": "IPFS NFT",
+    "description": "An NFT with fully decentralized storage",
+    "image": "ipfs://QmTestImageCID1234567890123456789012345678",
+    "attributes": [
+      { "trait_type": "Storage", "value": "IPFS" },
+      { "trait_type": "Status", "value": "Safe" }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "contractAddress": "0x0987654321098765432109876543210987654321",
+  "tokenId": "42",
+  "tokenUri": "https://api.niftygateway.com/metadata/42",
+  "name": "Centralized NFT",
+  "description": "An NFT stored on centralized infrastructure",
+  "contractName": "Nifty Gateway Collection",
+  "cachedMetadata": {
+    "name": "Centralized NFT",
+    "description": "An NFT stored on centralized infrastructure",
+    "image": "https://cdn.niftygateway.com/images/42.png",
+    "animation_url": "https://cdn.niftygateway.com/videos/42.mp4"
+  },
+  "cachedImageUrl": "https://cdn.niftygateway.com/images/42.png",
+  "cachedAnimationUrl": "https://cdn.niftygateway.com/videos/42.mp4"
+}
