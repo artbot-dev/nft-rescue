@@ -1,6 +1,6 @@
 # NFT Rescue
 
-A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. The tool analyzes all NFTs in a wallet, classifies their storage as "safe" (IPFS/Arweave) or "at-risk" (centralized CDNs, APIs), and downloads at-risk assets locally. Optionally uploads rescued assets to Arweave for permanent storage.
+A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. The tool analyzes all NFTs in a wallet, classifies their storage as "safe" (IPFS/Arweave) or "at-risk" (centralized CDNs, APIs), and downloads at-risk assets locally.
 
 ## Features
 
@@ -8,7 +8,7 @@ A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. Th
 - Discovers all NFTs owned by the wallet
 - Classifies storage as safe (IPFS, Arweave, data URIs) or at-risk (centralized)
 - Downloads at-risk assets locally
-- Optional Arweave upload for permanent decentralized storage
+- Falls back to Alchemy's cached data when original servers are offline
 - Progress bars and detailed reporting
 - Supports IPFS and HTTP URLs with retry logic
 
@@ -16,7 +16,6 @@ A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. Th
 
 - Node.js 18+
 - Alchemy API key (free tier works fine)
-- Arweave wallet JSON (only if using `--arweave` option)
 
 ## Setup
 
@@ -70,9 +69,6 @@ nft-rescue backup artbot.eth --dry-run
 
 # Backup ALL NFTs, not just at-risk
 nft-rescue backup artbot.eth --all
-
-# With Arweave upload
-nft-rescue backup artbot.eth --arweave --arweave-key wallet.json
 ```
 
 ### Shorthand
@@ -100,8 +96,6 @@ nft-rescue 0x1234...abcd --output ./backup
 | `-a, --all` | Backup all NFTs, not just at-risk | `false` |
 | `-d, --dry-run` | Show what would be backed up | `false` |
 | `-v, --verbose` | Detailed output | `false` |
-| `--arweave` | Upload backed-up assets to Arweave | `false` |
-| `--arweave-key <path>` | Path to Arweave wallet JSON (required for --arweave) | - |
 
 ## Storage Classification
 
@@ -133,7 +127,6 @@ nft-rescue-backup/
     └── <contract-address>/
         └── <token-id>/
             ├── metadata.json        # Original metadata
-            ├── metadata-rescued.json # Updated with Arweave URLs (if --arweave)
             ├── image.<ext>          # Primary image
             ├── animation.<ext>      # Animation if present
             └── storage-report.json  # Classification details
@@ -151,30 +144,18 @@ nft-rescue-backup/
     "fullyDecentralized": 30,
     "atRisk": 20,
     "backedUp": 18,
-    "failed": 2,
-    "uploadedToArweave": 15
+    "failed": 2
   },
   "nfts": [...]
 }
 ```
-
-## Arweave Setup
-
-To upload rescued assets to Arweave:
-
-1. Create an Arweave wallet at https://arweave.app or generate one using the Arweave SDK
-2. Fund your wallet with AR tokens (uploads cost approximately $0.0001 per KB)
-3. Save your wallet JSON file securely
-4. Use with the `--arweave` and `--arweave-key` options
-
-**Important:** When using `--arweave`, the tool will display a warning explaining that this creates a personal backup - the NFT tokens themselves still reference their original URLs on-chain.
 
 ## Notes
 
 - Only at-risk assets are backed up by default; use `--all` to backup everything
 - The tool includes rate limiting to avoid API throttling
 - IPFS content is accessed through multiple gateways with fallback
-- Arweave uploads are permanent and cannot be deleted
+- When original metadata servers are offline, the tool falls back to Alchemy's cached data
 
 ## License
 

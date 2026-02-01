@@ -43,23 +43,12 @@ export interface NFTStorageReport {
   atRiskUrls: string[]; // List of URLs needing backup
 }
 
-// Arweave upload types
-export interface ArweaveUploadResult {
-  transactionId: string;
-  url: string; // https://arweave.net/{txId}
-}
-
 export interface BackupResult {
   nft: DiscoveredNFT;
   metadataPath?: string;
   imagePath?: string;
   animationPath?: string;
   storageReport?: NFTStorageReport;
-  arweaveUploads?: {
-    image?: ArweaveUploadResult;
-    animation?: ArweaveUploadResult;
-    metadata?: ArweaveUploadResult;
-  };
   error?: string;
 }
 
@@ -69,7 +58,6 @@ export interface BackupSummary {
   atRisk: number;
   backedUp: number;
   failed: number;
-  uploadedToArweave: number;
 }
 
 export interface BackupManifest {
@@ -82,16 +70,10 @@ export interface BackupManifest {
     tokenId: string;
     name?: string;
     metadataFile?: string;
-    metadataRescuedFile?: string;
     imageFile?: string;
     animationFile?: string;
     storageReportFile?: string;
     storageStatus: 'decentralized' | 'at-risk' | 'mixed';
-    arweaveUrls?: {
-      image?: string;
-      animation?: string;
-      metadata?: string;
-    };
     error?: string;
   }>;
 }
@@ -101,8 +83,6 @@ export interface BackupOptions {
   dryRun: boolean;
   verbose: boolean;
   all: boolean; // Backup all NFTs, not just at-risk
-  arweave: boolean;
-  arweaveKeyPath?: string;
 }
 
 export interface AnalyzeOptions {

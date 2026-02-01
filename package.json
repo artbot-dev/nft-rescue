@@ -17,12 +17,10 @@
     "backup",
     "ethereum",
     "ipfs",
-    "arweave",
     "rescue"
   ],
   "license": "MIT",
   "dependencies": {
-    "@irys/sdk": "^0.2.11",
     "alchemy-sdk": "^3.4.1",
     "chalk": "^5.3.0",
     "cli-progress": "^3.12.0",

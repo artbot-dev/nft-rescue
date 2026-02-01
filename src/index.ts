@@ -6,14 +6,12 @@ import ora from 'ora';
 import cliProgress from 'cli-progress';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createInterface } from 'node:readline';
 
 import { resolveAddress, isEnsName, reverseResolve } from './ens.js';
 import { discoverNFTs } from './nft-discovery.js';
 import { fetchMetadata, extractMediaUrls } from './metadata.js';
-import { downloadAsset, formatBytes } from './downloader.js';
+import { downloadAsset } from './downloader.js';
 import { analyzeNFTStorage, getStorageStatus } from './storage-classifier.js';
-import { uploadToArweave, verifyArweaveWallet } from './arweave-uploader.js';
 import type {
   BackupManifest,
   BackupOptions,
@@ -30,23 +28,6 @@ import { RATE_LIMIT_DELAY } from './config.js';
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Prompt user for confirmation
- */
-async function confirm(message: string): Promise<boolean> {
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    rl.question(`${message} [y/N] `, (answer) => {
-      rl.close();
-      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
-    });
-  });
 }
 
 /**
@@ -189,30 +170,6 @@ async function analyze(input: string, options: AnalyzeOptions): Promise<void> {
 }
 
 /**
- * Get content type from file extension
- */
-function getContentType(filePath: string): string {
-  const ext = filePath.split('.').pop()?.toLowerCase();
-  const typeMap: Record<string, string> = {
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-    mp4: 'video/mp4',
-    webm: 'video/webm',
-    mov: 'video/quicktime',
-    mp3: 'audio/mpeg',
-    wav: 'audio/wav',
-    html: 'text/html',
-    pdf: 'application/pdf',
-    json: 'application/json',
-  };
-  return typeMap[ext || ''] || 'application/octet-stream';
-}
-
-/**
  * Backup a single NFT
  */
 async function backupNFT(
@@ -221,16 +178,10 @@ async function backupNFT(
   options: BackupOptions
 ): Promise<{
   metadataFile?: string;
-  metadataRescuedFile?: string;
   imageFile?: string;
   animationFile?: string;
   storageReportFile?: string;
   storageReport?: NFTStorageReport;
-  arweaveUrls?: {
-    image?: string;
-    animation?: string;
-    metadata?: string;
-  };
   error?: string;
 }> {
   const nftDir = join(outputDir, 'nfts', nft.contractAddress, nft.tokenId);
@@ -276,16 +227,10 @@ async function backupNFT(
 
     const result: {
       metadataFile?: string;
-      metadataRescuedFile?: string;
       imageFile?: string;
       animationFile?: string;
       storageReportFile?: string;
       storageReport?: NFTStorageReport;
-      arweaveUrls?: {
-        image?: string;
-        animation?: string;
-        metadata?: string;
-      };
     } = {
       metadataFile: metadataPath,
       storageReportFile: storageReportPath,
@@ -335,54 +280,6 @@ async function backupNFT(
       }
     }
 
-    // Upload to Arweave if requested
-    if (options.arweave && options.arweaveKeyPath) {
-      result.arweaveUrls = {};
-
-      if (result.imageFile) {
-        try {
-          const contentType = getContentType(result.imageFile);
-          const upload = await uploadToArweave(result.imageFile, contentType, options.arweaveKeyPath, [
-            { name: 'NFT-Contract', value: nft.contractAddress },
-            { name: 'NFT-TokenId', value: nft.tokenId },
-            { name: 'Asset-Type', value: 'image' },
-          ]);
-          result.arweaveUrls.image = upload.url;
-        } catch {
-          // Upload failed - continue
-        }
-      }
-
-      if (result.animationFile) {
-        try {
-          const contentType = getContentType(result.animationFile);
-          const upload = await uploadToArweave(result.animationFile, contentType, options.arweaveKeyPath, [
-            { name: 'NFT-Contract', value: nft.contractAddress },
-            { name: 'NFT-TokenId', value: nft.tokenId },
-            { name: 'Asset-Type', value: 'animation' },
-          ]);
-          result.arweaveUrls.animation = upload.url;
-        } catch {
-          // Upload failed - continue
-        }
-      }
-
-      // Create rescued metadata with Arweave URLs
-      if (result.arweaveUrls.image || result.arweaveUrls.animation) {
-        const rescuedMetadata = { ...metadata };
-        if (result.arweaveUrls.image) {
-          rescuedMetadata.image = result.arweaveUrls.image;
-        }
-        if (result.arweaveUrls.animation) {
-          rescuedMetadata.animation_url = result.arweaveUrls.animation;
-        }
-
-        const rescuedMetadataPath = join(nftDir, 'metadata-rescued.json');
-        await writeFile(rescuedMetadataPath, JSON.stringify(rescuedMetadata, null, 2));
-        result.metadataRescuedFile = rescuedMetadataPath;
-      }
-    }
-
     return result;
   } catch (error) {
     return {
@@ -398,15 +295,6 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
   const spinner = ora('Starting backup...').start();
 
   try {
-    // Verify Arweave wallet if needed
-    if (options.arweave) {
-      if (!options.arweaveKeyPath) {
-        spinner.fail(chalk.red('--arweave-key is required when using --arweave'));
-        process.exit(1);
-      }
-      await verifyArweaveWallet(options.arweaveKeyPath);
-    }
-
     // Step 1: Resolve address
     spinner.text = 'Resolving wallet address...';
     const walletAddress = await resolveAddress(input);
@@ -496,20 +384,6 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
       return;
     }
 
-    // Arweave warning
-    if (options.arweave) {
-      console.log('\n' + chalk.yellow('Warning: Uploading to Arweave creates a personal backup of your NFT assets.'));
-      console.log(chalk.yellow('    The NFT tokens themselves still reference their original URLs on-chain.'));
-      console.log(chalk.yellow('    If those servers go offline, others viewing your NFTs won\'t see the artwork'));
-      console.log(chalk.yellow('    unless they also have a backup. This preserves YOUR copy, not the token\'s link.'));
-
-      const proceed = await confirm('\n    Proceed with upload?');
-      if (!proceed) {
-        console.log(chalk.dim('Backup cancelled.'));
-        return;
-      }
-    }
-
     // Create output directory
     await mkdir(options.outputDir, { recursive: true });
 
@@ -527,7 +401,6 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
       atRisk: nftsToBackup.length,
       backedUp: 0,
       failed: 0,
-      uploadedToArweave: 0,
     };
 
     const manifest: BackupManifest = {
@@ -548,12 +421,10 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
         tokenId: nft.tokenId,
         name: nft.name,
         metadataFile: result.metadataFile,
-        metadataRescuedFile: result.metadataRescuedFile,
         imageFile: result.imageFile,
         animationFile: result.animationFile,
         storageReportFile: result.storageReportFile,
         storageStatus: getStorageStatus(result.storageReport || report),
-        arweaveUrls: result.arweaveUrls,
         error: result.error,
       });
 
@@ -561,9 +432,6 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
         summary.failed++;
       } else {
         summary.backedUp++;
-        if (result.arweaveUrls && (result.arweaveUrls.image || result.arweaveUrls.animation)) {
-          summary.uploadedToArweave++;
-        }
       }
 
       progressBar.update(i + 1);
@@ -581,9 +449,6 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
     console.log(chalk.dim('-'.repeat(50)));
     console.log(`  ${chalk.green('Backed up:')} ${summary.backedUp} NFTs`);
     console.log(`  ${chalk.red('Failed:')} ${summary.failed} NFTs`);
-    if (options.arweave) {
-      console.log(`  ${chalk.blue('Uploaded to Arweave:')} ${summary.uploadedToArweave} NFTs`);
-    }
     console.log(chalk.dim('-'.repeat(50)));
     console.log(`\nBackup saved to: ${chalk.cyan(options.outputDir)}`);
     console.log(`Manifest: ${chalk.cyan(manifestPath)}`);
@@ -623,16 +488,12 @@ program
   .option('-a, --all', 'Backup all NFTs, not just at-risk', false)
   .option('-d, --dry-run', 'Show what would be backed up', false)
   .option('-v, --verbose', 'Detailed output', false)
-  .option('--arweave', 'Upload backed-up assets to Arweave', false)
-  .option('--arweave-key <path>', 'Path to Arweave wallet JSON (required for --arweave)')
   .action(async (wallet: string, opts) => {
     const options: BackupOptions = {
       outputDir: opts.output,
       dryRun: opts.dryRun,
       verbose: opts.verbose,
       all: opts.all,
-      arweave: opts.arweave,
-      arweaveKeyPath: opts.arweaveKey,
     };
     await backup(wallet, options);
   });
@@ -644,8 +505,6 @@ program
   .option('-a, --all', 'Backup all NFTs, not just at-risk', false)
   .option('-d, --dry-run', 'Show what would be backed up', false)
   .option('-v, --verbose', 'Detailed output', false)
-  .option('--arweave', 'Upload backed-up assets to Arweave', false)
-  .option('--arweave-key <path>', 'Path to Arweave wallet JSON')
   .action(async (wallet: string | undefined, opts) => {
     if (!wallet) {
       program.help();
@@ -658,8 +517,6 @@ program
       dryRun: opts.dryRun,
       verbose: opts.verbose,
       all: opts.all,
-      arweave: opts.arweave,
-      arweaveKeyPath: opts.arweaveKey,
     };
     await backup(wallet, options);
   });
