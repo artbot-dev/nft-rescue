@@ -11,12 +11,14 @@ const originalEnv = process.env.ALCHEMY_API_KEY;
 // Mock the alchemy-sdk module
 vi.mock('alchemy-sdk', () => {
   const mockGetNftsForOwner = vi.fn();
-  const MockAlchemy = vi.fn().mockImplementation((config: { network: string }) => ({
-    nft: {
-      getNftsForOwner: mockGetNftsForOwner,
-    },
-    config,
-  }));
+  const MockAlchemy = vi.fn(function MockAlchemy(config: { network: string }) {
+    return {
+      nft: {
+        getNftsForOwner: mockGetNftsForOwner,
+      },
+      config,
+    };
+  });
 
   return {
     Alchemy: MockAlchemy,

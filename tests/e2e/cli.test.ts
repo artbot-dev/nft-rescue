@@ -1,42 +1,24 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdir, rm, access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 // Helper to run CLI commands
-function runCli(args: string[], env: Record<string, string> = {}): Promise<{
+async function runCli(
+  args: string[],
+  env: Record<string, string> = {},
+  setup?: () => void | Promise<void>
+): Promise<{
   stdout: string;
   stderr: string;
   exitCode: number | null;
 }> {
-  return new Promise((resolve) => {
-    const proc = spawn('node', ['dist/index.js', ...args], {
-      cwd: join(import.meta.dirname, '../..'),
-      env: { ...process.env, ...env },
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on('close', (code) => {
-      resolve({ stdout, stderr, exitCode: code });
-    });
-
-    // Timeout after 10 seconds
-    setTimeout(() => {
-      proc.kill();
-      resolve({ stdout, stderr, exitCode: -1 });
-    }, 10000);
-  });
+  vi.resetModules();
+  if (setup) {
+    await setup();
+  }
+  const { runCli } = await import('../../src/cli.js');
+  return runCli(args, { env, captureOutput: true });
 }
 
 describe('CLI e2e tests', () => {

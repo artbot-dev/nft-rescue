@@ -1,42 +1,25 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { spawn } from 'node:child_process';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createMockViemClient } from '../mocks/viem.js';
 
 // Helper to run CLI commands
-function runCli(args: string[], env: Record<string, string> = {}): Promise<{
+async function runCli(
+  args: string[],
+  env: Record<string, string> = {},
+  setup?: () => void | Promise<void>
+): Promise<{
   stdout: string;
   stderr: string;
   exitCode: number | null;
 }> {
-  return new Promise((resolve) => {
-    const proc = spawn('node', ['dist/index.js', ...args], {
-      cwd: join(import.meta.dirname, '../..'),
-      env: { ...process.env, ...env },
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on('close', (code) => {
-      resolve({ stdout, stderr, exitCode: code });
-    });
-
-    // Timeout after 15 seconds
-    setTimeout(() => {
-      proc.kill();
-      resolve({ stdout, stderr, exitCode: -1 });
-    }, 15000);
-  });
+  vi.resetModules();
+  if (setup) {
+    await setup();
+  }
+  const { runCli } = await import('../../src/cli.js');
+  return runCli(args, { env, captureOutput: true });
 }
 
 describe('CLI multi-chain e2e tests', () => {
@@ -160,7 +143,21 @@ describe('CLI multi-chain e2e tests', () => {
     it('should resolve ENS names on non-Ethereum chains with warning', async () => {
       const { stdout, exitCode } = await runCli(
         ['analyze', 'vitalik.eth', '--chain', 'base'],
-        { ALCHEMY_API_KEY: 'test-key' }
+        { ALCHEMY_API_KEY: 'test-key' },
+        async () => {
+          const mockClient = createMockViemClient();
+          vi.doMock('viem', async () => {
+            const actual = await vi.importActual<typeof import('viem')>('viem');
+            return {
+              ...actual,
+              createPublicClient: vi.fn(() => mockClient),
+              isAddress: (input: string) => /^0x[a-fA-F0-9]{40}$/.test(input),
+            };
+          });
+          vi.doMock('viem/ens', () => ({
+            normalize: (name: string) => name.toLowerCase(),
+          }));
+        }
       );
 
       // Should proceed (may fail due to API auth, but not due to ENS)

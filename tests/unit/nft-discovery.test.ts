@@ -12,12 +12,16 @@ const originalEnv = process.env.ALCHEMY_API_KEY;
 vi.mock('alchemy-sdk', () => {
   const mockGetNftsForOwner = vi.fn();
 
-  return {
-    Alchemy: vi.fn().mockImplementation(() => ({
+  const MockAlchemy = vi.fn(function MockAlchemy() {
+    return {
       nft: {
         getNftsForOwner: mockGetNftsForOwner,
       },
-    })),
+    };
+  });
+
+  return {
+    Alchemy: MockAlchemy,
     Network: {
       ETH_MAINNET: 'eth-mainnet',
     },
@@ -212,12 +216,16 @@ describe('nft-discovery', () => {
       vi.resetModules();
 
       // Re-mock without API key
-      vi.doMock('alchemy-sdk', () => ({
-        Alchemy: vi.fn().mockImplementation(() => {
+      vi.doMock('alchemy-sdk', () => {
+        const MockAlchemy = vi.fn(function MockAlchemy() {
           throw new Error('ALCHEMY_API_KEY environment variable is required');
-        }),
-        Network: { ETH_MAINNET: 'eth-mainnet' },
-      }));
+        });
+
+        return {
+          Alchemy: MockAlchemy,
+          Network: { ETH_MAINNET: 'eth-mainnet' },
+        };
+      });
 
       const { discoverNFTs: discover } = await import('../../src/nft-discovery.js');
 
