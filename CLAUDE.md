@@ -1,5 +1,52 @@
 # CLAUDE.md - Development Guide for nft-rescue
 
+## Project Overview
+
+nft-rescue is a CLI tool that backs up NFT assets stored on centralized/at-risk infrastructure. It:
+- Discovers NFTs owned by a wallet address
+- Analyzes storage (IPFS/Arweave = safe, HTTP URLs = at-risk)
+- Downloads at-risk metadata and media to local storage
+
+**Commands:**
+- `nft-rescue analyze <wallet>` - Show storage breakdown
+- `nft-rescue backup <wallet>` - Download at-risk assets
+
+## Architecture
+
+```
+src/
+├── index.ts           # CLI entry point (commander.js)
+├── chains.ts          # Chain configs (EVM + Tezos)
+├── ens.ts             # Address resolution (ENS, .tez domains)
+├── nft-discovery.ts   # NFT discovery facade
+├── providers/         # NFT discovery implementations
+│   ├── alchemy-provider.ts  # EVM chains via Alchemy API
+│   └── tzkt-provider.ts     # Tezos via TzKT API
+├── metadata.ts        # Fetch and parse NFT metadata
+├── storage-classifier.ts  # Classify URLs as safe/at-risk
+├── downloader.ts      # Download assets with retry logic
+└── types.ts           # Shared TypeScript interfaces
+```
+
+### Adding a New Blockchain
+
+**For EVM chains (Alchemy-supported):**
+1. Add config to `SUPPORTED_CHAINS` in `chains.ts` with `chainType: 'evm'`
+2. Include the `alchemyNetwork` from alchemy-sdk
+
+**For non-EVM chains:**
+1. Create new provider in `src/providers/` implementing `NFTDiscoveryProvider`
+2. Add chain config to `chains.ts` with appropriate `chainType`
+3. Update `getDiscoveryProvider()` in `nft-discovery.ts`
+4. Update `ens.ts` if the chain has its own naming service
+
+## Key Dependencies
+
+- **alchemy-sdk** - NFT discovery for EVM chains
+- **viem** - ENS resolution, Ethereum address validation
+- **commander** - CLI framework
+- **msw** - HTTP mocking in tests (Mock Service Worker)
+
 ## Development Practices
 
 ### Test-Driven Development (TDD)
@@ -50,8 +97,31 @@ npm test && npm run build
 
 ### Testing
 - Maintain 80%+ code coverage
-- Mock external APIs (Alchemy, IPFS gateways)
 - Coverage report: `npm run test:coverage`
+
+**HTTP Mocking with MSW:**
+- Use MSW (Mock Service Worker), NOT `global.fetch` mocking
+- Default handlers in `tests/mocks/handlers.ts`
+- Override per-test with `server.use()`:
+```typescript
+import { http, HttpResponse } from 'msw';
+import { server } from '../mocks/server.js';
+
+it('should handle API response', async () => {
+  server.use(
+    http.get('https://api.example.com/data', () => {
+      return HttpResponse.json({ key: 'value' });
+    })
+  );
+  // ... test code
+});
+```
+
+**Test structure:**
+- `tests/unit/` - Unit tests for individual modules
+- `tests/integration/` - Multi-module flows
+- `tests/e2e/` - CLI end-to-end tests
+- `tests/mocks/` - MSW handlers and mock data factories
 
 ## Security
 
