@@ -7,12 +7,12 @@ import cliProgress from 'cli-progress';
 import { mkdir, writeFile, access, constants } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 
-import { resolveAddress, isEnsName, reverseResolve } from './ens.js';
+import { resolveAddress, isEnsName, isTezDomain, reverseResolve } from './ens.js';
 import { discoverNFTs } from './nft-discovery.js';
 import { fetchMetadata, extractMediaUrls } from './metadata.js';
 import { downloadAsset } from './downloader.js';
 import { analyzeNFTStorage, getStorageStatus } from './storage-classifier.js';
-import { getChainConfig, getSupportedChainNames, getDefaultChain } from './chains.js';
+import { getChainConfig, getSupportedChainNames, getDefaultChain, isTezosChain } from './chains.js';
 import type {
   BackupManifest,
   BackupOptions,
@@ -25,9 +25,18 @@ import type {
 import { RATE_LIMIT_DELAY } from './config.js';
 
 /**
- * Validate that the Alchemy API key is configured
+ * Validate that the Alchemy API key is configured (only for EVM chains)
+ * @param chainName Chain to validate for
  */
-function validateApiKey(): void {
+function validateApiKey(chainName?: string): void {
+  const chain = chainName ? getChainConfig(chainName) : getDefaultChain();
+
+  // Tezos uses TzKT API which is free and doesn't require an API key
+  if (isTezosChain(chain)) {
+    return;
+  }
+
+  // EVM chains require Alchemy API key
   if (!process.env.ALCHEMY_API_KEY) {
     console.error(chalk.red('Error: ALCHEMY_API_KEY environment variable is required.'));
     console.error(chalk.dim('Get a free API key at: https://dashboard.alchemy.com/signup'));
@@ -83,8 +92,8 @@ function createProgressBar(format: string) {
  * Analyze command - show storage breakdown for all NFTs
  */
 async function analyze(input: string, options: AnalyzeOptions): Promise<void> {
-  // Validate API key before starting
-  validateApiKey();
+  // Validate API key before starting (chain-aware)
+  validateApiKey(options.chain);
 
   const chainConfig = getChainConfig(options.chain);
   const spinner = ora(`Starting analysis on ${chalk.cyan(chainConfig.displayName)}...`).start();
@@ -94,9 +103,11 @@ async function analyze(input: string, options: AnalyzeOptions): Promise<void> {
     spinner.text = 'Resolving wallet address...';
     const { address: walletAddress, warning: resolveWarning } = await resolveAddress(input, options.chain);
     const ensName = isEnsName(input) ? input : await reverseResolve(walletAddress, options.chain);
+    const tezDomainName = isTezDomain(input) ? input : null;
 
+    const displayName = ensName || tezDomainName;
     spinner.succeed(
-      `Resolved address: ${chalk.cyan(walletAddress)}${ensName ? ` (${chalk.green(ensName)})` : ''}`
+      `Resolved address: ${chalk.cyan(walletAddress)}${displayName ? ` (${chalk.green(displayName)})` : ''}`
     );
 
     if (resolveWarning) {
@@ -338,8 +349,8 @@ async function backupNFT(
  * Backup command - backup at-risk NFTs
  */
 async function backup(input: string, options: BackupOptions): Promise<void> {
-  // Validate API key before starting
-  validateApiKey();
+  // Validate API key before starting (chain-aware)
+  validateApiKey(options.chain);
 
   // Validate output directory is writable
   try {
@@ -357,9 +368,11 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
     spinner.text = 'Resolving wallet address...';
     const { address: walletAddress, warning: resolveWarning } = await resolveAddress(input, options.chain);
     const ensName = isEnsName(input) ? input : await reverseResolve(walletAddress, options.chain);
+    const tezDomainName = isTezDomain(input) ? input : null;
 
+    const displayName = ensName || tezDomainName;
     spinner.succeed(
-      `Resolved address: ${chalk.cyan(walletAddress)}${ensName ? ` (${chalk.green(ensName)})` : ''}`
+      `Resolved address: ${chalk.cyan(walletAddress)}${displayName ? ` (${chalk.green(displayName)})` : ''}`
     );
 
     if (resolveWarning) {

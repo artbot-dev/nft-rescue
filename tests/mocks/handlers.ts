@@ -2,6 +2,38 @@ import { http, HttpResponse } from 'msw';
 
 // Default handlers for common endpoints
 export const handlers = [
+  // TzKT domain resolution
+  http.get('https://api.tzkt.io/v1/domains', ({ request }) => {
+    const url = new URL(request.url);
+    const name = url.searchParams.get('name');
+
+    // Map of known test domains
+    const domainMap: Record<string, string> = {
+      'alice': 'tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb',
+      'bob': 'tz1aSkwEot3L2kmUvcoxzjMomb9mvBNuzFK6',
+    };
+
+    const address = name ? domainMap[name.toLowerCase()] : undefined;
+    if (address) {
+      return HttpResponse.json([{ address }]);
+    }
+
+    return HttpResponse.json([]);
+  }),
+
+  // TzKT token balances
+  http.get('https://api.tzkt.io/v1/tokens/balances', ({ request }) => {
+    const url = new URL(request.url);
+    const account = url.searchParams.get('account');
+
+    // Return empty array by default - tests override with server.use()
+    if (account) {
+      return HttpResponse.json([]);
+    }
+
+    return HttpResponse.json([]);
+  }),
+
   // IPFS gateway handlers
   http.get('https://ipfs.io/ipfs/:cid', ({ params }) => {
     const cid = params.cid as string;

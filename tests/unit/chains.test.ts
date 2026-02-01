@@ -5,6 +5,8 @@ import {
   getSupportedChainNames,
   isChainSupported,
   getDefaultChain,
+  isEvmChain,
+  isTezosChain,
   type ChainConfig,
 } from '../../src/chains.js';
 import { Network } from 'alchemy-sdk';
@@ -66,10 +68,22 @@ describe('chains', () => {
       for (const [name, config] of Object.entries(SUPPORTED_CHAINS)) {
         expect(config.name).toBe(name);
         expect(config.displayName).toBeTruthy();
-        expect(config.alchemyNetwork).toBeTruthy();
+        expect(config.chainType).toBeTruthy();
+        // alchemyNetwork is only required for EVM chains
+        if (isEvmChain(config)) {
+          expect(config.alchemyNetwork).toBeTruthy();
+        }
         expect(typeof config.chainId).toBe('number');
         expect(typeof config.supportsEns).toBe('boolean');
       }
+    });
+
+    it('should include Tezos', () => {
+      expect(SUPPORTED_CHAINS['tezos']).toBeDefined();
+      expect(SUPPORTED_CHAINS['tezos'].displayName).toBe('Tezos');
+      expect(SUPPORTED_CHAINS['tezos'].chainType).toBe('tezos');
+      expect(SUPPORTED_CHAINS['tezos'].alchemyNetwork).toBeUndefined();
+      expect(SUPPORTED_CHAINS['tezos'].supportsTezDomains).toBe(true);
     });
   });
 
@@ -141,6 +155,29 @@ describe('chains', () => {
     it('should return ethereum as default', () => {
       const defaultChain = getDefaultChain();
       expect(defaultChain.name).toBe('ethereum');
+    });
+  });
+
+  describe('isEvmChain', () => {
+    it('should return true for EVM chains', () => {
+      expect(isEvmChain(SUPPORTED_CHAINS.ethereum)).toBe(true);
+      expect(isEvmChain(SUPPORTED_CHAINS.base)).toBe(true);
+      expect(isEvmChain(SUPPORTED_CHAINS.polygon)).toBe(true);
+    });
+
+    it('should return false for non-EVM chains', () => {
+      expect(isEvmChain(SUPPORTED_CHAINS.tezos)).toBe(false);
+    });
+  });
+
+  describe('isTezosChain', () => {
+    it('should return true for Tezos', () => {
+      expect(isTezosChain(SUPPORTED_CHAINS.tezos)).toBe(true);
+    });
+
+    it('should return false for EVM chains', () => {
+      expect(isTezosChain(SUPPORTED_CHAINS.ethereum)).toBe(false);
+      expect(isTezosChain(SUPPORTED_CHAINS.base)).toBe(false);
     });
   });
 });

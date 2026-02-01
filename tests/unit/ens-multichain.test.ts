@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { server } from '../mocks/server.js';
 
 // Mock viem module
 vi.mock('viem', async () => {
@@ -156,6 +158,93 @@ describe('ens multi-chain support', () => {
       const { supportsEns } = await import('../../src/ens.js');
 
       expect(supportsEns()).toBe(true);
+    });
+  });
+
+  describe('Tezos support', () => {
+    beforeEach(() => {
+      server.resetHandlers();
+    });
+
+    it('should accept valid Tezos addresses on tezos chain', async () => {
+      const { resolveAddress } = await import('../../src/ens.js');
+
+      const result = await resolveAddress('tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb', 'tezos');
+      expect(result.address).toBe('tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb');
+      expect(result.warning).toBeUndefined();
+    });
+
+    it('should resolve .tez domains on tezos chain', async () => {
+      server.use(
+        http.get('https://api.tzkt.io/v1/domains', () => {
+          return HttpResponse.json([{ address: 'tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb' }]);
+        })
+      );
+
+      const { resolveAddress } = await import('../../src/ens.js');
+
+      const result = await resolveAddress('alice.tez', 'tezos');
+      expect(result.address).toBe('tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb');
+    });
+
+    it('should throw error for EVM addresses on Tezos chain', async () => {
+      const { resolveAddress } = await import('../../src/ens.js');
+
+      await expect(
+        resolveAddress('0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', 'tezos')
+      ).rejects.toThrow('is not a valid Tezos address or .tez domain');
+    });
+
+    it('should throw error for ENS names on Tezos chain', async () => {
+      const { resolveAddress } = await import('../../src/ens.js');
+
+      await expect(resolveAddress('vitalik.eth', 'tezos')).rejects.toThrow(
+        'is not a valid Tezos address or .tez domain'
+      );
+    });
+
+    it('should return null for reverse resolve on Tezos', async () => {
+      const { reverseResolve } = await import('../../src/ens.js');
+
+      const name = await reverseResolve('tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb', 'tezos');
+      expect(name).toBeNull();
+    });
+
+    it('should identify .tez domains with isTezDomain', async () => {
+      const { isTezDomain } = await import('../../src/ens.js');
+
+      expect(isTezDomain('alice.tez')).toBe(true);
+      expect(isTezDomain('bob.tez')).toBe(true);
+      expect(isTezDomain('vitalik.eth')).toBe(false);
+      expect(isTezDomain('example.com')).toBe(false);
+    });
+
+    it('should validate Tezos addresses with isTezosAddress', async () => {
+      const { isTezosAddress } = await import('../../src/ens.js');
+
+      expect(isTezosAddress('tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb')).toBe(true);
+      expect(isTezosAddress('KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton')).toBe(true);
+      expect(isTezosAddress('0x1234567890123456789012345678901234567890')).toBe(false);
+    });
+
+    it('should check valid address for chain with isValidAddress', async () => {
+      const { isValidAddress } = await import('../../src/ens.js');
+
+      // EVM address is valid on Ethereum, not on Tezos
+      expect(isValidAddress('0x1234567890123456789012345678901234567890', 'ethereum')).toBe(true);
+      expect(isValidAddress('0x1234567890123456789012345678901234567890', 'tezos')).toBe(false);
+
+      // Tezos address is valid on Tezos, not on Ethereum
+      expect(isValidAddress('tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb', 'tezos')).toBe(true);
+      expect(isValidAddress('tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb', 'ethereum')).toBe(false);
+    });
+
+    it('supportsTezDomains should return true for Tezos', async () => {
+      const { supportsTezDomains } = await import('../../src/ens.js');
+
+      expect(supportsTezDomains('tezos')).toBe(true);
+      expect(supportsTezDomains('ethereum')).toBe(false);
+      expect(supportsTezDomains('base')).toBe(false);
     });
   });
 });
