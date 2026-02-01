@@ -17,9 +17,20 @@
     "backup",
     "ethereum",
     "ipfs",
-    "rescue"
+    "rescue",
+    "web3",
+    "decentralized"
   ],
+  "author": "artbot-dev",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artbot-dev/nft-rescue.git"
+  },
+  "homepage": "https://github.com/artbot-dev/nft-rescue#readme",
+  "bugs": {
+    "url": "https://github.com/artbot-dev/nft-rescue/issues"
+  },
   "dependencies": {
     "alchemy-sdk": "^3.4.1",
     "chalk": "^5.3.0",
