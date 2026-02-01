@@ -7,6 +7,21 @@
 - Run tests continuously during development: `npm test`
 - Watch mode for active development: `npm run test:watch`
 
+### Branching Workflow
+**IMPORTANT: Always create a feature branch BEFORE making any changes.**
+
+```bash
+# Create and switch to feature branch FIRST
+git checkout -b feat/my-feature
+
+# ... make changes, commit ...
+
+# Push and create PR
+git push -u origin feat/my-feature
+```
+
+Never commit directly to `main`. All changes must go through feature branches and PRs.
+
 ### Branch Naming
 - `feat/*` - New features
 - `fix/*` - Bug fixes
