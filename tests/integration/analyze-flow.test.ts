@@ -159,7 +159,7 @@ describe('analyze flow integration', () => {
 
       // Test address resolution
       const resolved = await resolveAddress('0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045');
-      expect(resolved).toBe('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
+      expect(resolved.address).toBe('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
     });
   });
 

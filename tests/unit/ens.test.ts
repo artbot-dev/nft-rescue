@@ -71,21 +71,23 @@ describe('ens', () => {
 
   describe('resolveAddress', () => {
     it('should return normalized address for valid Ethereum addresses', async () => {
-      const address = await resolveAddress('0xD8dA6BF26964aF9D7eEd9e03E53415D37aA96045');
-      expect(address).toBe('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
+      const result = await resolveAddress('0xD8dA6BF26964aF9D7eEd9e03E53415D37aA96045');
+      expect(result.address).toBe('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
+      expect(result.warning).toBeUndefined();
     });
 
     it('should resolve ENS names to addresses', async () => {
-      const address = await resolveAddress('vitalik.eth');
-      expect(address).toBe('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
+      const result = await resolveAddress('vitalik.eth');
+      expect(result.address).toBe('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
+      expect(result.warning).toBeUndefined();
     });
 
     it('should resolve multiple ENS names correctly', async () => {
       const vitalik = await resolveAddress('vitalik.eth');
       const artbot = await resolveAddress('artbot.eth');
 
-      expect(vitalik).toBe('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
-      expect(artbot).toBe('0x1234567890123456789012345678901234567890');
+      expect(vitalik.address).toBe('0xd8da6bf26964af9d7eed9e03e53415d37aa96045');
+      expect(artbot.address).toBe('0x1234567890123456789012345678901234567890');
     });
 
     it('should throw error for invalid input', async () => {

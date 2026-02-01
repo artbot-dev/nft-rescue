@@ -8,6 +8,7 @@ A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. Th
 
 ## Features
 
+- **Multi-chain support**: Ethereum, Base, Zora, Optimism, Arbitrum, Polygon
 - Accepts ENS names (e.g., `artbot.eth`) or wallet addresses
 - Discovers all NFTs owned by the wallet
 - Classifies storage as safe (IPFS, Arweave, data URIs) or at-risk (centralized)
@@ -47,7 +48,7 @@ npm link  # Makes 'nft-rescue' available globally
    - Create a new app (select "Ethereum" and "Mainnet")
    - Copy your API key
 
-3. Set the environment variable:
+2. Set the environment variable:
 
 ```bash
 export ALCHEMY_API_KEY=your-api-key-here
@@ -60,8 +61,12 @@ export ALCHEMY_API_KEY=your-api-key-here
 Analyze a wallet to see the storage breakdown of all NFTs:
 
 ```bash
-# Basic analysis
+# Basic analysis (Ethereum by default)
 nft-rescue analyze artbot.eth
+
+# Analyze on a specific chain
+nft-rescue analyze 0x1234...abcd --chain base
+nft-rescue analyze 0x1234...abcd --chain zora
 
 # Verbose output (shows details of at-risk NFTs)
 nft-rescue analyze artbot.eth --verbose
@@ -75,6 +80,9 @@ Backup NFTs stored on centralized infrastructure:
 # Backup at-risk NFTs (default behavior)
 nft-rescue backup artbot.eth
 
+# Backup from a specific chain
+nft-rescue backup 0x1234...abcd --chain base
+
 # Specify output directory
 nft-rescue backup artbot.eth --output ./my-backup
 
@@ -85,27 +93,33 @@ nft-rescue backup artbot.eth --dry-run
 nft-rescue backup artbot.eth --all
 ```
 
-### Shorthand
+## Supported Chains
 
-You can also run backup directly without the `backup` subcommand:
+| Chain | Flag | Chain ID |
+|-------|------|----------|
+| Ethereum | `--chain ethereum` (default) | 1 |
+| Base | `--chain base` | 8453 |
+| Zora | `--chain zora` | 7777777 |
+| Optimism | `--chain optimism` | 10 |
+| Arbitrum | `--chain arbitrum` | 42161 |
+| Polygon | `--chain polygon` | 137 |
 
-```bash
-nft-rescue artbot.eth
-nft-rescue 0x1234...abcd --output ./backup
-```
+**Note:** ENS names (e.g., `artbot.eth`) are only supported on Ethereum. Use wallet addresses for other chains.
 
 ## CLI Options
 
 ### `nft-rescue analyze <wallet>`
 
-| Option | Description |
-|--------|-------------|
-| `-v, --verbose` | Show detailed output including at-risk NFT details |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-c, --chain <chain>` | Blockchain to query | `ethereum` |
+| `-v, --verbose` | Show detailed output including at-risk NFT details | `false` |
 
 ### `nft-rescue backup <wallet>`
 
 | Option | Description | Default |
 |--------|-------------|---------|
+| `-c, --chain <chain>` | Blockchain to query | `ethereum` |
 | `-o, --output <dir>` | Output directory | `./nft-rescue-backup` |
 | `-a, --all` | Backup all NFTs, not just at-risk | `false` |
 | `-d, --dry-run` | Show what would be backed up | `false` |
@@ -152,6 +166,8 @@ nft-rescue-backup/
 {
   "walletAddress": "0x...",
   "ensName": "artbot.eth",
+  "chainName": "ethereum",
+  "chainId": 1,
   "backupDate": "2025-01-27T...",
   "summary": {
     "totalNFTs": 50,
@@ -170,7 +186,7 @@ nft-rescue-backup/
 - The tool includes rate limiting to avoid API throttling (100ms between requests)
 - IPFS content is accessed through multiple gateways with fallback
 - When original metadata servers are offline, the tool falls back to Alchemy's cached data
-- Currently supports Ethereum mainnet only
+- ENS resolution only works on Ethereum; use wallet addresses for other chains
 
 ## API Rate Limits
 
