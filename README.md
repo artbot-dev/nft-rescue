@@ -150,7 +150,12 @@ Everything else is considered at-risk, including:
 
 ```
 nft-rescue-backup/
-├── manifest.json                    # Summary with storage analysis
+├── manifests/
+│   ├── manifest.<chain>.<wallet>.json          # Summary with storage analysis
+│   ├── history/
+│   │   └── manifest.<chain>.<wallet>.<ts>.json # Snapshots before overwrite
+│   └── runs/
+│       └── run.<ts>.<chain>.<wallet>.json      # Per-run delta summary
 └── nfts/
     └── <contract-address>/
         └── <token-id>/
@@ -161,6 +166,9 @@ nft-rescue-backup/
 ```
 
 ## Manifest Format
+
+Manifests are stored per wallet+chain at `manifests/manifest.<chain>.<wallet>.json`.
+Per-run delta files are stored at `manifests/runs/run.<ts>.<chain>.<wallet>.json`.
 
 ```json
 {

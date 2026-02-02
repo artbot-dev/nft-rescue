@@ -11,6 +11,7 @@ import { fetchMetadata, extractMediaUrls } from './metadata.js';
 import { downloadAsset } from './downloader.js';
 import { analyzeNFTStorage, getStorageStatus } from './storage-classifier.js';
 import { getChainConfig, getSupportedChainNames, getDefaultChain, isTezosChain } from './chains.js';
+import { writeManifestWithHistory } from './manifest.js';
 import { format } from 'node:util';
 import type {
   BackupManifest,
@@ -537,9 +538,13 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
 
     progressBar.stop();
 
-    // Save manifest
-    const manifestPath = join(options.outputDir, 'manifest.json');
-    await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+    // Save manifest (per wallet+chain, with history)
+    const manifestPath = await writeManifestWithHistory(
+      options.outputDir,
+      chainConfig.name,
+      walletAddress,
+      manifest
+    );
 
     // Display results
     console.log('\n' + chalk.bold('Backup Complete:'));
