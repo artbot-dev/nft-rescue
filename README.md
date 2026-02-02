@@ -8,8 +8,8 @@ A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. Th
 
 ## Features
 
-- **Multi-chain support**: Ethereum, Base, Zora, Optimism, Arbitrum, Polygon
-- Accepts ENS names (e.g., `artbot.eth`) or wallet addresses
+- **Multi-chain support**: Ethereum, Base, Zora, Optimism, Arbitrum, Polygon, Tezos
+- Accepts ENS names (e.g., `artbot.eth`), Tezos domains (e.g., `alice.tez`), or wallet addresses
 - Discovers all NFTs owned by the wallet
 - Classifies storage as safe (IPFS, Arweave, data URIs) or at-risk (centralized)
 - Downloads at-risk assets locally
@@ -20,7 +20,7 @@ A CLI tool to backup NFT assets stored on centralized/at-risk infrastructure. Th
 ## Prerequisites
 
 - Node.js 18+
-- Alchemy API key (free tier works fine)
+- Alchemy API key for EVM chains (free tier works fine); not required for Tezos
 
 ## Installation
 
@@ -41,6 +41,8 @@ npm link  # Makes 'nft-rescue' available globally
 ```
 
 ## Setup
+
+Alchemy API keys are required for EVM chains (Ethereum, Base, Zora, Optimism, Arbitrum, Polygon). If you're only using Tezos, you can skip this section.
 
 1. Get an Alchemy API key:
    - Go to https://dashboard.alchemy.com/signup
@@ -67,6 +69,7 @@ nft-rescue analyze artbot.eth
 # Analyze on a specific chain
 nft-rescue analyze 0x1234...abcd --chain base
 nft-rescue analyze 0x1234...abcd --chain zora
+nft-rescue analyze alice.tez --chain tezos
 
 # Verbose output (shows details of at-risk NFTs)
 nft-rescue analyze artbot.eth --verbose
@@ -82,6 +85,7 @@ nft-rescue backup artbot.eth
 
 # Backup from a specific chain
 nft-rescue backup 0x1234...abcd --chain base
+nft-rescue backup alice.tez --chain tezos
 
 # Specify output directory
 nft-rescue backup artbot.eth --output ./my-backup
@@ -103,8 +107,9 @@ nft-rescue backup artbot.eth --all
 | Optimism | `--chain optimism` | 10 |
 | Arbitrum | `--chain arbitrum` | 42161 |
 | Polygon | `--chain polygon` | 137 |
+| Tezos | `--chain tezos` | n/a (non-EVM) |
 
-**Note:** ENS names (e.g., `artbot.eth`) are only supported on Ethereum. Use wallet addresses for other chains.
+**Note:** ENS names (e.g., `artbot.eth`) are supported on Ethereum. Tezos domains (e.g., `alice.tez`) are supported on Tezos. Use wallet addresses for other chains.
 
 ## CLI Options
 

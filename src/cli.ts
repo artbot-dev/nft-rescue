@@ -593,7 +593,7 @@ export function createProgram(): Command {
   const analyzeCommand = program
     .command('analyze')
     .description('Analyze wallet and show storage breakdown')
-    .argument('<wallet>', 'Wallet address or ENS name (e.g., artbot.eth)')
+    .argument('<wallet>', 'Wallet address or domain (e.g., artbot.eth, alice.tez)')
     .option('-v, --verbose', 'Show detailed output', false)
     .option('-c, --chain <chain>', chainOptionDesc, 'ethereum')
     .action(async (wallet: string, opts) => {
@@ -617,7 +617,7 @@ export function createProgram(): Command {
   const backupCommand = program
     .command('backup')
     .description('Backup at-risk NFTs')
-    .argument('<wallet>', 'Wallet address or ENS name (e.g., artbot.eth)')
+    .argument('<wallet>', 'Wallet address or domain (e.g., artbot.eth, alice.tez)')
     .option('-o, --output <dir>', 'Output directory', './nft-rescue-backup')
     .option('-a, --all', 'Backup all NFTs, not just at-risk', false)
     .option('-d, --dry-run', 'Show what would be backed up', false)

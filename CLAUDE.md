@@ -39,6 +39,10 @@ src/
 2. Add chain config to `chains.ts` with appropriate `chainType`
 3. Update `getDiscoveryProvider()` in `nft-discovery.ts`
 4. Update `ens.ts` if the chain has its own naming service
+5. Update user-facing docs and help:
+   - README: Features list, Supported Chains table, usage examples, prerequisites/API key notes
+   - CLI help text in `src/cli.ts` (wallet argument description, chain option description)
+   - Verify `nft-rescue --help` reflects the new chain/naming service
 
 ## Key Dependencies
 
@@ -155,6 +159,7 @@ npm publish
 
 - Update README.md when adding new features
 - Document CLI options and API changes
+- When adding or changing supported chains, keep README and CLI help in sync with `SUPPORTED_CHAINS`
 
 ## CI/CD
 
