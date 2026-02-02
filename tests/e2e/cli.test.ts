@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdir, rm, access, readFile } from 'node:fs/promises';
+import { mkdir, rm, access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -66,6 +66,32 @@ describe('CLI e2e tests', () => {
 
       expect(exitCode).not.toBe(0);
       expect(stderr).toContain('ALCHEMY_API_KEY');
+    });
+
+    it('should load ALCHEMY_API_KEY from .env', async () => {
+      const envDir = join(tmpdir(), `nft-rescue-env-${Date.now()}`);
+      await mkdir(envDir, { recursive: true });
+      await writeFile(join(envDir, '.env'), 'ALCHEMY_API_KEY=test-key\n');
+
+      const originalCwd = process.cwd();
+      const originalKey = process.env.ALCHEMY_API_KEY;
+      delete process.env.ALCHEMY_API_KEY;
+      process.chdir(envDir);
+
+      try {
+        const { stderr, exitCode } = await runCli(['analyze', 'invalid-address']);
+
+        expect(exitCode).not.toBe(0);
+        expect(stderr).toContain('Invalid input');
+        expect(stderr).not.toContain('ALCHEMY_API_KEY');
+      } finally {
+        process.chdir(originalCwd);
+        if (originalKey === undefined) {
+          delete process.env.ALCHEMY_API_KEY;
+        } else {
+          process.env.ALCHEMY_API_KEY = originalKey;
+        }
+      }
     });
 
     it('should fail with invalid wallet address', async () => {

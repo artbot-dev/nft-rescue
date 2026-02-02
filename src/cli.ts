@@ -12,6 +12,7 @@ import { downloadAsset } from './downloader.js';
 import { analyzeNFTStorage, getStorageStatus } from './storage-classifier.js';
 import { getChainConfig, getSupportedChainNames, getDefaultChain, isTezosChain } from './chains.js';
 import { writeManifestWithHistory } from './manifest.js';
+import { loadEnv } from './env.js';
 import { format } from 'node:util';
 import type {
   BackupManifest,
@@ -673,6 +674,8 @@ export async function runCli(
   const originalConsoleError = console.error.bind(console);
   const originalEnv = process.env;
   const originalExitCode = process.exitCode;
+
+  await loadEnv();
 
   if (env) {
     process.env = { ...process.env, ...env };
