@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server.js';
-import { ipfsToHttp, fetchMetadata, extractMediaUrls } from '../../src/metadata.js';
+import { ipfsToHttp, fetchMetadata, extractMediaUrls, normalizeTraits } from '../../src/metadata.js';
 import { createMockMetadata } from '../helpers/test-utils.js';
 
 describe('metadata', () => {
@@ -202,6 +202,48 @@ describe('metadata', () => {
 
       expect(result.image).toBe('https://ipfs.io/ipfs/QmImage1234567890123456789012345678901234');
       expect(result.animation).toBe('https://example.com/video.mp4');
+    });
+  });
+
+  describe('normalizeTraits', () => {
+    it('should normalize attribute arrays', () => {
+      const metadata = {
+        attributes: [
+          { trait_type: 'Color', value: 'Blue' },
+          { trait_type: 'Size', value: 3, display_type: 'number' },
+          { type: 'Mood', value: 'Chill' },
+          { name: 'Style', val: 'Sketch' },
+        ],
+      };
+
+      const result = normalizeTraits(metadata);
+
+      expect(result).toEqual([
+        { trait_type: 'Color', value: 'Blue', display_type: undefined },
+        { trait_type: 'Size', value: '3', display_type: 'number' },
+        { trait_type: 'Mood', value: 'Chill', display_type: undefined },
+        { trait_type: 'Style', value: 'Sketch', display_type: undefined },
+      ]);
+    });
+
+    it('should normalize traits objects with value wrappers', () => {
+      const metadata = {
+        traits: {
+          rarity: { value: 'rare', display_type: 'boost' },
+          edition: 1,
+        },
+      };
+
+      const result = normalizeTraits(metadata);
+
+      expect(result).toEqual([
+        { trait_type: 'rarity', value: 'rare', display_type: 'boost' },
+        { trait_type: 'edition', value: '1', display_type: undefined },
+      ]);
+    });
+
+    it('should return empty array for missing metadata', () => {
+      expect(normalizeTraits(undefined)).toEqual([]);
     });
   });
 });

@@ -73,6 +73,13 @@ git push -u origin feat/my-feature
 
 Never commit directly to `main`. All changes must go through feature branches and PRs.
 
+### Mandatory Start-of-Task Checklist
+Before editing any file:
+1) Open `CLAUDE.md` and `AGENTS.md` to confirm required workflow.
+2) Run `git status` to ensure the working tree is clean or the state is understood.
+3) Create and switch to a feature branch (`feat/*`, `fix/*`, `chore/*`).
+4) If any required tooling (npm, git, etc.) is unavailable, stop and ask for guidance.
+
 ### Branch Naming
 - `feat/*` - New features
 - `fix/*` - Bug fixes

@@ -165,6 +165,98 @@ async function getUniqueRunPath(
   }
 }
 
+type ManifestIndexEntry = {
+  path: string;
+  chainName: string;
+  chainId: number;
+  walletAddress: string;
+  walletName?: string;
+  backupDate: string;
+};
+
+async function collectCanonicalManifests(manifestDir: string): Promise<{
+  entries: ManifestIndexEntry[];
+  manifestMap: Record<string, BackupManifest>;
+}> {
+  const entries = await readdir(manifestDir, { withFileTypes: true });
+  const manifestFiles = entries.filter(
+    (entry) =>
+      entry.isFile() &&
+      entry.name.startsWith('manifest.') &&
+      entry.name.endsWith('.json')
+  );
+
+  const indexEntries: ManifestIndexEntry[] = [];
+  const manifestMap: Record<string, BackupManifest> = {};
+
+  for (const file of manifestFiles) {
+    try {
+      const raw = await readFile(join(manifestDir, file.name), 'utf-8');
+      const manifest = JSON.parse(raw) as BackupManifest;
+      const path = join('manifests', file.name).replace(/\\\\/g, '/');
+      indexEntries.push({
+        path,
+        chainName: manifest.chainName,
+        chainId: manifest.chainId,
+        walletAddress: manifest.walletAddress,
+        walletName: manifest.ensName,
+        backupDate: manifest.backupDate,
+      });
+      manifestMap[path] = manifest;
+    } catch {
+      // Ignore malformed manifests when building index.
+    }
+  }
+
+  indexEntries.sort((a, b) => {
+    const chain = a.chainName.localeCompare(b.chainName);
+    if (chain !== 0) return chain;
+    return a.walletAddress.localeCompare(b.walletAddress);
+  });
+
+  return { entries: indexEntries, manifestMap };
+}
+
+export async function writeManifestIndex(outputDir: string): Promise<string> {
+  const manifestDir = join(outputDir, 'manifests');
+  await mkdir(manifestDir, { recursive: true });
+
+  const { entries } = await collectCanonicalManifests(manifestDir);
+
+  const index = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    manifests: entries,
+  };
+
+  const indexPath = join(manifestDir, 'index.json');
+  await writeFile(indexPath, JSON.stringify(index, null, 2));
+  return indexPath;
+}
+
+export async function writeGalleryData(outputDir: string): Promise<string> {
+  const manifestDir = join(outputDir, 'manifests');
+  await mkdir(manifestDir, { recursive: true });
+
+  const { entries, manifestMap } = await collectCanonicalManifests(manifestDir);
+  const generatedAt = new Date().toISOString();
+  const payload = {
+    version: 1,
+    generatedAt,
+    index: {
+      version: 1,
+      generatedAt,
+      manifests: entries,
+    },
+    manifests: manifestMap,
+  };
+
+  const dataPath = join(outputDir, 'gallery-data.js');
+  const serialized = `window.__NFT_RESCUE_GALLERY__ = ${JSON.stringify(payload, null, 2)};`;
+  await writeFile(dataPath, serialized);
+  return dataPath;
+}
+
 export async function writeManifestWithHistory(
   outputDir: string,
   chainName: string,
@@ -205,5 +297,7 @@ export async function writeManifestWithHistory(
   await writeFile(runPath, JSON.stringify(delta, null, 2));
 
   await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+  await writeManifestIndex(outputDir);
+  await writeGalleryData(outputDir);
   return manifestPath;
 }

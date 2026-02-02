@@ -11,6 +11,7 @@ dist/
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # OS files
 .DS_Store
@@ -27,6 +28,7 @@ wallet.json
 # Logs
 *.log
 npm-debug.log*
+.npmrc
 
 # Test coverage
 coverage/

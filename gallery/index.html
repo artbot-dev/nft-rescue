@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NFT Rescue Gallery</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">NFT Rescue</p>
+        <h1>Offline Gallery</h1>
+        <p class="subtitle">Browse your rescued NFTs by wallet, chain, collection, and traits.</p>
+      </div>
+      <label class="toggle" id="toggleRemoteLabel">
+        <input type="checkbox" id="toggleRemote" />
+        <span>Remote fallback</span>
+      </label>
+    </header>
+
+    <main class="main">
+      <aside class="filters">
+        <form id="filters" class="filters-form" autocomplete="off">
+          <div class="field">
+            <label for="filterWallet">Wallet</label>
+            <select id="filterWallet"></select>
+          </div>
+          <div class="field">
+            <label for="filterChain">Chain</label>
+            <select id="filterChain"></select>
+          </div>
+          <div class="field">
+            <label for="filterCollection">Collection</label>
+            <select id="filterCollection"></select>
+          </div>
+          <div class="field">
+            <label for="filterStorage">Storage</label>
+            <select id="filterStorage">
+              <option value="all">All</option>
+              <option value="decentralized">Decentralized</option>
+              <option value="mixed">Mixed</option>
+              <option value="at-risk">At-risk</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="filterTraitType">Trait Type</label>
+            <select id="filterTraitType"></select>
+          </div>
+          <div class="field">
+            <label for="filterTraitValue">Trait Value</label>
+            <select id="filterTraitValue"></select>
+          </div>
+          <div class="field">
+            <label for="filterSearch">Search</label>
+            <input id="filterSearch" type="search" placeholder="Name, token, contract" />
+          </div>
+          <button type="button" id="resetFilters" class="ghost">Reset filters</button>
+        </form>
+      </aside>
+
+      <section class="content">
+        <div class="content-head">
+          <div class="breadcrumbs" id="breadcrumbs"></div>
+          <div class="counts" id="resultCount"></div>
+        </div>
+
+        <div id="collectionHeader" class="collection-header hidden">
+          <div>
+            <p class="eyebrow">Collection</p>
+            <h2 id="collectionTitle"></h2>
+          </div>
+          <button id="collectionClear" class="ghost">Back to gallery</button>
+        </div>
+
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+
+        <div id="grid" class="grid"></div>
+        <section id="detail" class="detail hidden"></section>
+      </section>
+    </main>
+  </div>
+
+  <script src="gallery-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

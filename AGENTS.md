@@ -1,5 +1,11 @@
 # AGENTS.md - Guardrails for nft-rescue contributors
 
+## Start-of-task checklist (mandatory)
+1) Open `CLAUDE.md` before making any changes.
+2) Run `git status` and confirm the working tree is clean or understood.
+3) Create and switch to a feature branch (`feat/*`, `fix/*`, `chore/*`) before edits.
+4) If you cannot run required commands (e.g., missing npm), call it out immediately and ask for guidance.
+
 ## Keep user-facing docs in sync
 When you change supported chains, providers, or naming services, update all of:
 - `src/chains.ts` (`SUPPORTED_CHAINS`)

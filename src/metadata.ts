@@ -1,5 +1,5 @@
 import { IPFS_GATEWAY_URLS, RETRY_CONFIG, REQUEST_TIMEOUT } from './config.js';
-import type { NFTMetadata } from './types.js';
+import type { NFTMetadata, NormalizedTrait } from './types.js';
 
 /**
  * Transform IPFS URI to HTTP gateway URL
@@ -142,4 +142,61 @@ export function extractMediaUrls(metadata: NFTMetadata): {
     image: metadata.image ? ipfsToHttp(metadata.image) : undefined,
     animation: metadata.animation_url ? ipfsToHttp(metadata.animation_url) : undefined,
   };
+}
+
+export function normalizeTraits(metadata?: NFTMetadata): NormalizedTrait[] {
+  if (!metadata) {
+    return [];
+  }
+
+  const traits: NormalizedTrait[] = [];
+  const candidates = [metadata.attributes, (metadata as { traits?: unknown }).traits, metadata.properties];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (Array.isArray(candidate)) {
+      for (const entry of candidate) {
+        if (!entry || typeof entry !== 'object') continue;
+        const typed = entry as {
+          trait_type?: string;
+          type?: string;
+          name?: string;
+          value?: string | number;
+          val?: string | number;
+          display_type?: string;
+        };
+        const traitType = typed.trait_type || typed.type || typed.name;
+        const value = typed.value ?? typed.val;
+        if (traitType === undefined || value === undefined) continue;
+        traits.push({
+          trait_type: String(traitType),
+          value: String(value),
+          display_type: typed.display_type ? String(typed.display_type) : undefined,
+        });
+      }
+    } else if (typeof candidate === 'object') {
+      for (const [key, value] of Object.entries(candidate as Record<string, unknown>)) {
+        if (value && typeof value === 'object' && 'value' in (value as Record<string, unknown>)) {
+          const raw = (value as { value?: unknown; display_type?: unknown }).value;
+          if (raw === undefined) continue;
+          traits.push({
+            trait_type: String(key),
+            value: String(raw),
+            display_type:
+              (value as { display_type?: unknown }).display_type !== undefined
+                ? String((value as { display_type?: unknown }).display_type)
+                : undefined,
+          });
+        } else if (value !== undefined) {
+          traits.push({
+            trait_type: String(key),
+            value: String(value),
+            display_type: undefined,
+          });
+        }
+      }
+    }
+  }
+
+  return traits;
 }

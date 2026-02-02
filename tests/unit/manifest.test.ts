@@ -58,6 +58,32 @@ describe('manifest helpers', () => {
     expect(historyContent.backupDate).toBe(manifestA.backupDate);
   });
 
+  it('writes a manifest index for gallery lookup', async () => {
+    const manifest = {
+      walletAddress,
+      chainName,
+      chainId: 7777777,
+      backupDate: '2026-02-01T00:00:00.000Z',
+      summary: { totalNFTs: 1, fullyDecentralized: 0, atRisk: 1, backedUp: 1, failed: 0 },
+      nfts: [],
+    };
+
+    await writeManifestWithHistory(testDir, chainName, walletAddress, manifest);
+
+    const indexPath = join(testDir, 'manifests', 'index.json');
+    const index = JSON.parse(await readFile(indexPath, 'utf-8'));
+    expect(index.manifests).toHaveLength(1);
+    expect(index.manifests[0].path).toBe(
+      `manifests/manifest.${chainName}.${walletAddress}.json`
+    );
+
+    const galleryDataPath = join(testDir, 'gallery-data.js');
+    const galleryData = await readFile(galleryDataPath, 'utf-8');
+    const json = galleryData.replace(/^window\.__NFT_RESCUE_GALLERY__ = /, '').trim();
+    const payload = JSON.parse(json.replace(/;$/, ''));
+    expect(payload.index.manifests).toHaveLength(1);
+  });
+
   it('prunes old history snapshots beyond the limit', async () => {
     const baseManifest = {
       walletAddress,

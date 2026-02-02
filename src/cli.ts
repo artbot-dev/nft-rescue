@@ -2,16 +2,17 @@ import { Command, CommanderError } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import cliProgress from 'cli-progress';
-import { mkdir, writeFile, access, constants } from 'node:fs/promises';
+import { mkdir, writeFile, access, constants, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 
 import { resolveAddress, isEnsName, isTezDomain, reverseResolve } from './ens.js';
 import { discoverNFTs } from './nft-discovery.js';
-import { fetchMetadata, extractMediaUrls } from './metadata.js';
+import { fetchMetadata, extractMediaUrls, normalizeTraits } from './metadata.js';
 import { downloadAsset } from './downloader.js';
 import { analyzeNFTStorage, getStorageStatus } from './storage-classifier.js';
 import { getChainConfig, getSupportedChainNames, getDefaultChain, isTezosChain } from './chains.js';
-import { writeManifestWithHistory } from './manifest.js';
+import { writeManifestWithHistory, writeManifestIndex, writeGalleryData } from './manifest.js';
+import { copyGalleryAssets } from './gallery.js';
 import { loadEnv } from './env.js';
 import { format } from 'node:util';
 import type {
@@ -83,6 +84,30 @@ async function validateOutputDir(outputDir: string): Promise<void> {
   }
 }
 
+async function validateBackupDir(outputDir: string): Promise<void> {
+  try {
+    await access(outputDir, constants.R_OK);
+  } catch {
+    throw new Error(`Backup directory not found: ${outputDir}`);
+  }
+
+  const manifestDir = join(outputDir, 'manifests');
+  try {
+    await access(manifestDir, constants.R_OK);
+  } catch {
+    throw new Error(`Manifests directory not found: ${manifestDir}`);
+  }
+
+  const files = await readdir(manifestDir);
+  const hasManifest = files.some(
+    (file) => file.startsWith('manifest.') && file.endsWith('.json')
+  );
+
+  if (!hasManifest) {
+    throw new Error(`No canonical manifests found in ${manifestDir}`);
+  }
+}
+
 /**
  * Sleep for a given number of milliseconds
  */
@@ -103,6 +128,41 @@ function createProgressBar(format: string) {
     },
     cliProgress.Presets.shades_classic
   );
+}
+
+function getCollectionName(nft: DiscoveredNFT, metadata?: NFTMetadata): string | undefined {
+  if (nft.contractName) {
+    return nft.contractName;
+  }
+  const meta = metadata as { collection?: { name?: string }; collectionName?: string; contract?: { name?: string } };
+  return meta?.collection?.name || meta?.collectionName || meta?.contract?.name;
+}
+
+async function refreshGallery(outputDir: string): Promise<void> {
+  try {
+    await validateOutputDir(outputDir);
+    await validateBackupDir(outputDir);
+  } catch (error) {
+    console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+    process.exitCode = 1;
+    return;
+  }
+
+  const spinner = ora('Refreshing gallery assets...').start();
+
+  try {
+    await writeManifestIndex(outputDir);
+    await writeGalleryData(outputDir);
+    await copyGalleryAssets(outputDir);
+
+    spinner.succeed('Gallery refreshed.');
+    console.log(`Gallery: ${chalk.cyan(join(outputDir, 'index.html'))}`);
+  } catch (error) {
+    spinner.fail(
+      chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`)
+    );
+    process.exitCode = 1;
+  }
 }
 
 /**
@@ -502,7 +562,7 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
 
     const manifest: BackupManifest = {
       walletAddress,
-      ensName: ensName || undefined,
+      ensName: displayName || undefined,
       chainName: chainConfig.name,
       chainId: chainConfig.chainId,
       backupDate: new Date().toISOString(),
@@ -511,17 +571,24 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
     };
 
     for (let i = 0; i < nftsToBackup.length; i++) {
-      const { nft, report } = nftsToBackup[i];
+      const { nft, report, metadata } = nftsToBackup[i];
 
       const result = await backupNFT(nft, options.outputDir, options);
+      const traits = normalizeTraits(metadata);
+      const mediaUrls = metadata ? extractMediaUrls(metadata) : {};
+      const collectionName = getCollectionName(nft, metadata);
 
       manifest.nfts.push({
         contractAddress: nft.contractAddress,
         tokenId: nft.tokenId,
         name: nft.name,
+        collectionName,
+        traits: traits.length > 0 ? traits : undefined,
         metadataFile: result.metadataFile,
         imageFile: result.imageFile,
         animationFile: result.animationFile,
+        imageUrl: mediaUrls.image,
+        animationUrl: mediaUrls.animation,
         storageReportFile: result.storageReportFile,
         storageStatus: getStorageStatus(result.storageReport || report),
         error: result.error,
@@ -547,6 +614,18 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
       manifest
     );
 
+    let galleryPath: string | null = null;
+    try {
+      await copyGalleryAssets(options.outputDir);
+      galleryPath = join(options.outputDir, 'index.html');
+    } catch (error) {
+      console.log(
+        chalk.yellow(
+          `Warning: Failed to copy gallery assets (${error instanceof Error ? error.message : String(error)})`
+        )
+      );
+    }
+
     // Display results
     console.log('\n' + chalk.bold('Backup Complete:'));
     console.log(chalk.dim('-'.repeat(50)));
@@ -555,6 +634,9 @@ async function backup(input: string, options: BackupOptions): Promise<void> {
     console.log(chalk.dim('-'.repeat(50)));
     console.log(`\nBackup saved to: ${chalk.cyan(options.outputDir)}`);
     console.log(`Manifest: ${chalk.cyan(manifestPath)}`);
+    if (galleryPath) {
+      console.log(`Gallery: ${chalk.cyan(galleryPath)}`);
+    }
   } catch (error) {
     spinner.fail(
       chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`)
@@ -643,6 +725,28 @@ export function createProgram(): Command {
       await backup(trimmedWallet, options);
     });
 
+  const galleryCommand = program
+    .command('gallery')
+    .description('Manage offline gallery assets');
+
+  const galleryRefreshCommand = galleryCommand
+    .command('refresh')
+    .description('Regenerate gallery assets for an existing backup')
+    .argument('[dir]', 'Backup directory', './nft-rescue-backup')
+    .action(async (dir: string) => {
+      const trimmedDir = dir.trim();
+      if (!trimmedDir) {
+        console.error(chalk.red('Error: Backup directory is required.'));
+        process.exitCode = 1;
+        return;
+      }
+      await refreshGallery(trimmedDir);
+    });
+
+  galleryCommand.action(() => {
+    galleryCommand.help();
+  });
+
   // Show help by default if no command is given
   program.action(() => {
     program.help();
@@ -651,6 +755,7 @@ export function createProgram(): Command {
   program.exitOverride();
   analyzeCommand.exitOverride();
   backupCommand.exitOverride();
+  galleryRefreshCommand.exitOverride();
 
   return program;
 }

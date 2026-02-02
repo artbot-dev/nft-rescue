@@ -9,7 +9,11 @@ Minimal, offline-friendly gallery that runs from the backup root and allows filt
 
 ## Data Source Options
 ### A) Manifest-only gallery
-- Read one or more manifests, normalize paths, and load `metadata.json` per entry.
+- Read canonical manifests only: `manifests/manifest.<chain>.<wallet>.json`.
+- Ignore `manifests/history/` and `manifests/runs/` by default.
+- Use `manifests/index.json` for manifest discovery in static mode.
+- Generate `gallery-data.js` for file:// loading (no fetch).
+- Normalize paths, and load `metadata.json` per entry.
 - Only shows NFTs listed in manifests.
 - Simple and fast, but can miss items if manifests are partial.
 
@@ -23,18 +27,19 @@ Minimal, offline-friendly gallery that runs from the backup root and allows filt
 - `id`: `${chainId}:${contractAddress}:${tokenId}`
 - `contractAddress`, `tokenId`, `name`
 - `chainName`, `chainId`
+- `walletAddress`, `walletName?` (ENS/Tez when present)
 - `metadataPath`
 - `media`: `{ imagePath?, animationPath?, imageUrl?, animationUrl? }`
 - `traits`: normalized array of `{ trait_type, value, display_type? }`
 - `storageStatus` (if available)
 
 ### 2) Path normalization
-- Manifest paths may include the backup root prefix.
-- Normalize to paths relative to the backup root.
+- Manifest file paths are absolute (from backup run).
+- Normalize to paths relative to the backup root (path-relative + separator normalization).
 
 ### 3) Media resolution order
-1. Local `image.*` / `animation.*` in the NFT folder.
-2. Manifest `imageFile` / `animationFile` if present.
+1. Manifest `imageFile` / `animationFile` if present.
+2. Local `image.*` / `animation.*` in the NFT folder (fallback scan).
 3. Metadata `image` / `animation_url` / `content.uri` as optional remote fallback.
 
 ### 4) Trait normalization
@@ -42,14 +47,20 @@ Minimal, offline-friendly gallery that runs from the backup root and allows filt
 - Normalize to `{ trait_type, value, display_type? }`.
 
 ### 5) Filtering
-- Chain, collection/contract, trait type/value, storage status.
+- Wallet/ENS/Tez, chain, collection/contract, trait type/value, storage status.
 
 ## Implementation Steps (Draft)
 1. Decide data source (manifest-only vs index-builder).
+   - Default selection: chain = `ethereum`, wallet = first manifest found for that chain.
+     - Preferred order: entries with ENS/Tez name first; then lexicographic by name/address.
+   - Load only canonical manifests; ignore `history/` and `runs/` unless explicitly requested.
 2. Implement loader and normalization.
-3. Build UI:
-   - `index.html`: filter panel + grid.
-   - `app.js`: load, normalize, render, filter.
+3. Build UI (three views):
+   - Gallery view: global filters + grid.
+   - Collection view: gallery view with collection filter applied.
+   - Artwork view: single NFT detail (media, traits, storage status, metadata links).
+   - `index.html`: filter panel + grid + detail region (view routing/state).
+   - `app.js`: load, normalize, render, filter, route views.
    - `styles.css`: minimal, responsive.
 4. Offline behavior:
    - Prefer local assets.

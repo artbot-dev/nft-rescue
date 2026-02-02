@@ -12,6 +12,12 @@ export interface NFTMetadata {
   [key: string]: unknown;
 }
 
+export interface NormalizedTrait {
+  trait_type: string;
+  value: string;
+  display_type?: string;
+}
+
 export interface DiscoveredNFT {
   contractAddress: string;
   tokenId: string;
@@ -74,9 +80,13 @@ export interface BackupManifest {
     contractAddress: string;
     tokenId: string;
     name?: string;
+    collectionName?: string;
+    traits?: NormalizedTrait[];
     metadataFile?: string;
     imageFile?: string;
     animationFile?: string;
+    imageUrl?: string;
+    animationUrl?: string;
     storageReportFile?: string;
     storageStatus: 'decentralized' | 'at-risk' | 'mixed';
     error?: string;

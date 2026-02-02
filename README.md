@@ -155,7 +155,12 @@ Everything else is considered at-risk, including:
 
 ```
 nft-rescue-backup/
+├── index.html                     # Offline gallery entrypoint
+├── app.js                         # Gallery logic
+├── styles.css                     # Gallery styles
+├── gallery-data.js                # Embedded gallery data for file:// use
 ├── manifests/
+│   ├── index.json                  # Gallery manifest index
 │   ├── manifest.<chain>.<wallet>.json          # Summary with storage analysis
 │   ├── history/
 │   │   └── manifest.<chain>.<wallet>.<ts>.json # Snapshots before overwrite
@@ -169,6 +174,11 @@ nft-rescue-backup/
             ├── animation.<ext>      # Animation if present
             └── storage-report.json  # Classification details
 ```
+
+## Gallery
+
+Open `index.html` inside the backup folder to browse your NFTs. The gallery works offline and includes filters for wallet, chain, collection, traits, and storage status. If you want to fetch remote media when local assets are missing, enable the remote fallback toggle.
+If you see a blank gallery when opening via `file://`, re-run the backup so `gallery-data.js` is regenerated.
 
 ## Manifest Format
 
@@ -200,6 +210,14 @@ Per-run delta files are stored at `manifests/runs/run.<ts>.<chain>.<wallet>.json
 - IPFS content is accessed through multiple gateways with fallback
 - When original metadata servers are offline, the tool falls back to Alchemy's cached data
 - ENS resolution only works on Ethereum; use wallet addresses for other chains
+
+## Gallery Refresh
+
+If you update manifests manually or copy a backup to another machine, you can regenerate the gallery assets:
+
+```bash
+nft-rescue gallery refresh ./nft-rescue-backup
+```
 
 ## API Rate Limits
 

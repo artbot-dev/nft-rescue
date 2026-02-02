@@ -165,6 +165,50 @@ describe('CLI e2e tests', () => {
     });
   });
 
+  describe('gallery refresh command', () => {
+    it('should regenerate gallery assets for an existing backup', async () => {
+      const manifestDir = join(testOutputDir, 'manifests');
+      await mkdir(manifestDir, { recursive: true });
+
+      const walletAddress = '0xabc123';
+      const manifest = {
+        walletAddress,
+        chainName: 'ethereum',
+        chainId: 1,
+        backupDate: '2026-02-01T00:00:00.000Z',
+        summary: { totalNFTs: 0, fullyDecentralized: 0, atRisk: 0, backedUp: 0, failed: 0 },
+        nfts: [],
+      };
+
+      await writeFile(
+        join(manifestDir, `manifest.ethereum.${walletAddress}.json`),
+        JSON.stringify(manifest, null, 2)
+      );
+
+      const { stdout, exitCode } = await runCli(['gallery', 'refresh', testOutputDir]);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Gallery:');
+      await access(join(testOutputDir, 'index.html'));
+      await access(join(testOutputDir, 'gallery-data.js'));
+    });
+
+    it('should fail when manifests directory is missing', async () => {
+      const { stderr, exitCode } = await runCli(['gallery', 'refresh', testOutputDir]);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Manifests directory not found');
+    });
+
+    it('should fail when no manifests exist', async () => {
+      await mkdir(join(testOutputDir, 'manifests'), { recursive: true });
+      const { stderr, exitCode } = await runCli(['gallery', 'refresh', testOutputDir]);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('No canonical manifests found');
+    });
+  });
+
   describe('default command', () => {
     it('should show help when no wallet is provided', async () => {
       const { stdout, exitCode } = await runCli([]);
