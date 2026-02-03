@@ -3,6 +3,21 @@ import { mkdir, rm, access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+const mockDiscoverNFTs = vi.fn().mockResolvedValue([]);
+const mockReverseResolve = vi.fn().mockResolvedValue(null);
+
+vi.mock('../../src/nft-discovery.js', () => ({
+  discoverNFTs: (...args: unknown[]) => mockDiscoverNFTs(...args),
+}));
+
+vi.mock('../../src/ens.js', async () => {
+  const actual = await vi.importActual<typeof import('../../src/ens.js')>('../../src/ens.js');
+  return {
+    ...actual,
+    reverseResolve: (...args: unknown[]) => mockReverseResolve(...args),
+  };
+});
+
 // Helper to run CLI commands
 async function runCli(
   args: string[],
@@ -27,6 +42,10 @@ describe('CLI e2e tests', () => {
   beforeEach(async () => {
     testOutputDir = join(tmpdir(), `nft-rescue-e2e-${Date.now()}`);
     await mkdir(testOutputDir, { recursive: true });
+    mockDiscoverNFTs.mockClear();
+    mockReverseResolve.mockClear();
+    mockDiscoverNFTs.mockResolvedValue([]);
+    mockReverseResolve.mockResolvedValue(null);
   });
 
   afterEach(async () => {

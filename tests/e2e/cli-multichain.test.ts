@@ -4,6 +4,21 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createMockViemClient } from '../mocks/viem.js';
 
+const mockDiscoverNFTs = vi.fn().mockResolvedValue([]);
+const mockReverseResolve = vi.fn().mockResolvedValue(null);
+
+vi.mock('../../src/nft-discovery.js', () => ({
+  discoverNFTs: (...args: unknown[]) => mockDiscoverNFTs(...args),
+}));
+
+vi.mock('../../src/ens.js', async () => {
+  const actual = await vi.importActual<typeof import('../../src/ens.js')>('../../src/ens.js');
+  return {
+    ...actual,
+    reverseResolve: (...args: unknown[]) => mockReverseResolve(...args),
+  };
+});
+
 // Helper to run CLI commands
 async function runCli(
   args: string[],
@@ -28,6 +43,10 @@ describe('CLI multi-chain e2e tests', () => {
   beforeEach(async () => {
     testOutputDir = join(tmpdir(), `nft-rescue-chain-e2e-${Date.now()}`);
     await mkdir(testOutputDir, { recursive: true });
+    mockDiscoverNFTs.mockClear();
+    mockReverseResolve.mockClear();
+    mockDiscoverNFTs.mockResolvedValue([]);
+    mockReverseResolve.mockResolvedValue(null);
   });
 
   afterEach(async () => {
