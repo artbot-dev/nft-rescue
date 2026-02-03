@@ -13,6 +13,7 @@ export function createMockTzKTTokenBalance(overrides: {
   description?: string;
   displayUri?: string;
   artifactUri?: string;
+  attributes?: unknown;
   balance?: string;
 } = {}) {
   return {
@@ -46,7 +47,7 @@ export function createMockTzKTTokenBalance(overrides: {
           },
         ],
         creators: ['tz1Creator123'],
-        attributes: [
+        attributes: overrides.attributes ?? [
           { name: 'Color', value: 'Blue' },
           { trait_type: 'Rarity', value: 'Rare' },
         ],

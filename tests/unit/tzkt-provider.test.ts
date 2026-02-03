@@ -224,6 +224,31 @@ describe('TzKTProvider', () => {
       expect(attributes?.[1]).toEqual({ trait_type: 'Rarity', value: 'Rare' });
     });
 
+    it('should handle attributes provided as an object map', async () => {
+      const mockBalance = createMockTzKTTokenBalance({
+        tokenId: '2',
+        attributes: {
+          Color: 'Green',
+          Rarity: { value: 'Epic' },
+        },
+      });
+
+      server.use(
+        http.get('https://api.tzkt.io/v1/tokens/balances', () => {
+          return HttpResponse.json([mockBalance]);
+        })
+      );
+
+      const provider = new TzKTProvider(tezosConfig);
+      const nfts = await provider.discoverNFTs('tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb');
+
+      const attributes = nfts[0].cachedMetadata?.attributes;
+      expect(attributes).toEqual([
+        { trait_type: 'Color', value: 'Green' },
+        { trait_type: 'Rarity', value: 'Epic' },
+      ]);
+    });
+
     it('should use correct TzKT API URL with FA2 filter', async () => {
       let capturedUrl: string | null = null;
 

@@ -48,11 +48,7 @@ interface TzKTTokenMetadata {
     dimensions?: { value: string; unit: string };
   }>;
   creators?: string[];
-  attributes?: Array<{
-    name?: string;
-    value?: string;
-    trait_type?: string;
-  }>;
+  attributes?: unknown;
   [key: string]: unknown;
 }
 
@@ -93,10 +89,36 @@ function mapTzip21ToNFTMetadata(tzip21: TzKTTokenMetadata): NFTMetadata {
   }
 
   // Map attributes - TZIP-21 can use either name/value or trait_type/value
-  const attributes = tzip21.attributes?.map((attr) => ({
-    trait_type: attr.trait_type || attr.name,
-    value: attr.value,
-  }));
+  let attributes: Array<{ trait_type?: string; value?: string }> | undefined;
+  const rawAttributes = tzip21.attributes;
+
+  if (Array.isArray(rawAttributes)) {
+    attributes = rawAttributes
+      .map((attr) => {
+        if (!attr || typeof attr !== 'object') return null;
+        const typed = attr as { name?: string; value?: string; trait_type?: string };
+        const traitType = typed.trait_type || typed.name;
+        const value = typed.value;
+        if (!traitType || value === undefined) return null;
+        return { trait_type: traitType, value };
+      })
+      .filter((entry): entry is { trait_type?: string; value?: string } => entry !== null);
+  } else if (rawAttributes && typeof rawAttributes === 'object') {
+    const mapped: Array<{ trait_type?: string; value?: string }> = [];
+    for (const [key, value] of Object.entries(rawAttributes as Record<string, unknown>)) {
+      if (value && typeof value === 'object' && 'value' in (value as Record<string, unknown>)) {
+        const rawValue = (value as { value?: unknown }).value;
+        if (rawValue === undefined || rawValue === null) continue;
+        mapped.push({ trait_type: String(key), value: String(rawValue) });
+        continue;
+      }
+      if (value === undefined || value === null) continue;
+      mapped.push({ trait_type: String(key), value: String(value) });
+    }
+    if (mapped.length > 0) {
+      attributes = mapped;
+    }
+  }
 
   return {
     name: tzip21.name,
