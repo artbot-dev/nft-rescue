@@ -89,31 +89,51 @@ function mapTzip21ToNFTMetadata(tzip21: TzKTTokenMetadata): NFTMetadata {
   }
 
   // Map attributes - TZIP-21 can use either name/value or trait_type/value
-  let attributes: Array<{ trait_type?: string; value?: string }> | undefined;
+  let attributes: NFTMetadata['attributes'];
   const rawAttributes = tzip21.attributes;
 
   if (Array.isArray(rawAttributes)) {
-    attributes = rawAttributes
-      .map((attr) => {
-        if (!attr || typeof attr !== 'object') return null;
-        const typed = attr as { name?: string; value?: string; trait_type?: string };
-        const traitType = typed.trait_type || typed.name;
-        const value = typed.value;
-        if (!traitType || value === undefined) return null;
-        return { trait_type: traitType, value };
-      })
-      .filter((entry): entry is { trait_type?: string; value?: string } => entry !== null);
+    const mapped: NonNullable<NFTMetadata['attributes']> = [];
+    for (const attr of rawAttributes) {
+      if (!attr || typeof attr !== 'object') continue;
+      const typed = attr as {
+        name?: unknown;
+        value?: unknown;
+        trait_type?: unknown;
+        display_type?: unknown;
+      };
+      const traitType = typed.trait_type ?? typed.name;
+      const value = typed.value;
+      if (traitType === undefined || value === undefined) continue;
+      mapped.push({
+        trait_type: String(traitType),
+        value: typeof value === 'number' || typeof value === 'string' ? value : String(value),
+        display_type: typed.display_type ? String(typed.display_type) : undefined,
+      });
+    }
+    if (mapped.length > 0) {
+      attributes = mapped;
+    }
   } else if (rawAttributes && typeof rawAttributes === 'object') {
-    const mapped: Array<{ trait_type?: string; value?: string }> = [];
+    const mapped: NonNullable<NFTMetadata['attributes']> = [];
     for (const [key, value] of Object.entries(rawAttributes as Record<string, unknown>)) {
       if (value && typeof value === 'object' && 'value' in (value as Record<string, unknown>)) {
         const rawValue = (value as { value?: unknown }).value;
         if (rawValue === undefined || rawValue === null) continue;
-        mapped.push({ trait_type: String(key), value: String(rawValue) });
+        mapped.push({
+          trait_type: String(key),
+          value:
+            typeof rawValue === 'number' || typeof rawValue === 'string'
+              ? rawValue
+              : String(rawValue),
+        });
         continue;
       }
       if (value === undefined || value === null) continue;
-      mapped.push({ trait_type: String(key), value: String(value) });
+      mapped.push({
+        trait_type: String(key),
+        value: typeof value === 'number' || typeof value === 'string' ? value : String(value),
+      });
     }
     if (mapped.length > 0) {
       attributes = mapped;
